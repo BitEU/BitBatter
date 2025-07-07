@@ -15,6 +15,7 @@
 #include <conio.h>
 #include <time.h>
 #include <string.h>
+#include <signal.h>
 
 // --- Game Configuration ---
 // You can change this value to adjust the game length.
@@ -30,6 +31,12 @@ int TOTAL_INNINGS = 3;
 
 // Console screen buffer handle
 HANDLE hConsole;
+HANDLE hInput;
+
+// Store original console modes for restoration
+DWORD originalOutputMode;
+DWORD originalInputMode;
+UINT originalOutputCP;
 
 // Game State Variables
 int score[2] = {0, 0}; // 0: Visitor, 1: Home
@@ -43,6 +50,11 @@ int bases[3] = {0, 0, 0}; // 1st, 2nd, 3rd base. 1 if runner is on base.
 // Team names (as requested for testing)
 const char *visitor_team_name = "New York Yankees";
 const char *home_team_name = "Boston Red Sox";
+
+// --- Function Declarations ---
+void cleanup_console();
+void signal_handler(int signal);
+BOOL WINAPI console_handler(DWORD signal);
 
 // --- Console & Drawing Functions ---
 
@@ -74,6 +86,113 @@ void hide_cursor() {
    info.dwSize = 100;
    info.bVisible = FALSE;
    SetConsoleCursorInfo(hConsole, &info);
+}
+
+/**
+ * @brief Shows the cursor again.
+ */
+void show_cursor() {
+   CONSOLE_CURSOR_INFO info;
+   info.dwSize = 25;
+   info.bVisible = TRUE;
+   SetConsoleCursorInfo(hConsole, &info);
+}
+
+/**
+ * @brief Signal handler for graceful exit.
+ */
+void signal_handler(int signal) {
+    cleanup_console();
+    printf("\nProgram interrupted. Console has been restored.\n");
+    exit(0);
+}
+
+/**
+ * @brief Console control handler for Windows console events.
+ */
+BOOL WINAPI console_handler(DWORD signal) {
+    if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT || signal == CTRL_BREAK_EVENT) {
+        cleanup_console();
+        printf("\nProgram interrupted. Console has been restored.\n");
+        ExitProcess(0);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/**
+ * @brief Cleanup function called at program exit.
+ */
+void exit_cleanup() {
+    if (hConsole != INVALID_HANDLE_VALUE) {
+        // Show cursor
+        CONSOLE_CURSOR_INFO info;
+        info.dwSize = 25;
+        info.bVisible = TRUE;
+        SetConsoleCursorInfo(hConsole, &info);
+        
+        // Restore original console modes
+        SetConsoleMode(hConsole, originalOutputMode);
+        if (hInput != INVALID_HANDLE_VALUE) {
+            SetConsoleMode(hInput, originalInputMode);
+        }
+        
+        // Restore original code page
+        SetConsoleOutputCP(originalOutputCP);
+        
+        // Reset to default colors
+        SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+        
+        // Clear screen
+        system("cls");
+    }
+}
+
+/**
+ * @brief Resets console to default state and cleans up before exit.
+ */
+void cleanup_console() {
+    // Show cursor first
+    show_cursor();
+    
+    // Restore original console modes
+    if (hConsole != INVALID_HANDLE_VALUE) {
+        SetConsoleMode(hConsole, originalOutputMode);
+    }
+    if (hInput != INVALID_HANDLE_VALUE) {
+        SetConsoleMode(hInput, originalInputMode);
+    }
+    
+    // Restore original code page
+    SetConsoleOutputCP(originalOutputCP);
+    
+    // Reset to default colors (white text on black background)
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    
+    // Clear the screen completely
+    system("cls");
+    
+    // Move cursor to top-left
+    gotoxy(0, 0);
+    
+    // Clear any remaining screen buffer artifacts
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(hConsole, &csbi)) {
+        DWORD dwSize = csbi.dwSize.X * csbi.dwSize.Y;
+        DWORD dwWritten;
+        COORD coord = {0, 0};
+        
+        // Fill screen with spaces
+        FillConsoleOutputCharacter(hConsole, ' ', dwSize, coord, &dwWritten);
+        
+        // Reset all attributes to default
+        FillConsoleOutputAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, 
+                                 dwSize, coord, &dwWritten);
+    }
+    
+    printf("Thanks for playing Terminal League Baseball!\n");
+    printf("Press any key to exit...\n");
+    _getch();
 }
 
 
@@ -174,25 +293,25 @@ void draw_field() {
     }
 
     // Draw prominent bases (make them clearly visible and properly positioned)
-    // Home Plate (at bottom of diamond)
-    draw_block(39, 20, 'H', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED);
-    draw_block(38, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED);
-    draw_block(40, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED);
+    // Home Plate (at bottom of diamond) - White base
+    draw_block(39, 20, 'H', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(38, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(40, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
-    // First Base (right side of diamond)
-    draw_block(50, 15, '1', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    // First Base (right side of diamond) - White base
+    draw_block(50, 15, '1', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(49, 15, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(50, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(49, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
-    // Second Base (top of diamond)
-    draw_block(39, 10, '2', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    // Second Base (top of diamond) - White base
+    draw_block(39, 10, '2', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(38, 10, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(39, 9, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(38, 9, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
-    // Third Base (left side of diamond)
-    draw_block(28, 15, '3', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    // Third Base (left side of diamond) - White base
+    draw_block(28, 15, '3', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(29, 15, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(28, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     draw_block(29, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
@@ -205,10 +324,10 @@ void draw_field() {
     for(int i=0; i<4; i++) draw_block(41, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     for(int i=0; i<4; i++) draw_block(42, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     
-    // Draw outfield warning track
+    // Draw outfield warning track (brown/tan color)
     for (int x = 5; x < 75; x++) {
-        draw_block(x, 2, DIRT_CHAR, BACKGROUND_RED);
-        draw_block(x, 3, DIRT_CHAR, BACKGROUND_RED);
+        draw_block(x, 2, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+        draw_block(x, 3, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
     }
 }
 
@@ -216,42 +335,68 @@ void draw_field() {
  * @brief Updates the scoreboard and game state display.
  */
 void update_scoreboard() {
-    // Set to a neutral color
-    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-
-    // Team Scores
+    // Title with bright colors
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_BLUE);
     gotoxy(2, 1);
-    printf("Terminal League Baseball");
+    printf("   Terminal League Baseball   ");
+    
+    // Reset color for scoreboard
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+
+    // Team Scores with improved formatting
     gotoxy(2, 3);
-    printf("TEAM            R");
+    printf("╔══════════════════════════════╗");
     gotoxy(2, 4);
-    printf("--------------- -");
+    printf("║ TEAM                    R    ║");
     gotoxy(2, 5);
-    printf("%-15.15s %d", visitor_team_name, score[0]);
+    printf("╠══════════════════════════════╣");
     gotoxy(2, 6);
-    printf("%-15.15s %d", home_team_name, score[1]);
+    printf("║ %-15.15s       %d    ║", visitor_team_name, score[0]);
+    gotoxy(2, 7);
+    printf("║ %-15.15s       %d    ║", home_team_name, score[1]);
+    gotoxy(2, 8);
+    printf("╚══════════════════════════════╝");
 
-    // Inning
-    gotoxy(60, 3);
-    printf("INNING: %s %d", (current_half == 0) ? "Top" : "Bot", current_inning);
+    // Game status with colored background
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_GREEN);
+    gotoxy(55, 3);
+    printf("  INNING: %s %d  ", (current_half == 0) ? "Top" : "Bot", current_inning);
 
-    // Game State
-    gotoxy(60, 5);
-    printf("Outs:   %d", outs);
-    gotoxy(60, 6);
-    printf("Strikes: %d", strikes);
-    gotoxy(60, 7);
-    printf("Balls:   %d", balls);
+    // Game State with box drawing
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    gotoxy(55, 5);
+    printf("┌─────────────┐");
+    gotoxy(55, 6);
+    printf("│ Outs:   %d   │", outs);
+    gotoxy(55, 7);
+    printf("│ Strikes: %d  │", strikes);
+    gotoxy(55, 8);
+    printf("│ Balls:   %d  │", balls);
+    gotoxy(55, 9);
+    printf("└─────────────┘");
 
-    // Base Runners
-    gotoxy(60, 9);
-    printf("BASES:");
-    set_color(bases[2] ? (FOREGROUND_RED | FOREGROUND_INTENSITY) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
-    gotoxy(65, 10); printf("3rd"); // 3rd
-    set_color(bases[1] ? (FOREGROUND_RED | FOREGROUND_INTENSITY) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
-    gotoxy(68, 8); printf("2nd"); // 2nd
-    set_color(bases[0] ? (FOREGROUND_RED | FOREGROUND_INTENSITY) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
-    gotoxy(71, 10); printf("1st"); // 1st
+    // Base Runners with improved layout
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    gotoxy(55, 11);
+    printf("┌─ BASES ──────┐");
+    gotoxy(55, 12);
+    printf("│      ");
+    set_color(bases[1] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
+    printf("2nd");
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("      │");
+    gotoxy(55, 13);
+    printf("│  ");
+    set_color(bases[2] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
+    printf("3rd");
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("   ");
+    set_color(bases[0] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
+    printf("1st");
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("  │");
+    gotoxy(55, 14);
+    printf("└──────────────┘");
 }
 
 
@@ -261,13 +406,22 @@ void update_scoreboard() {
  * @param delay_ms Time in milliseconds to display the message.
  */
 void show_message(const char* message, int delay_ms) {
-    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY); // Bright Yellow
-    gotoxy(25, 23);
-    printf("MSG: %-50.50s", message);
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY | BACKGROUND_BLUE); // Bright Yellow on Blue
+    gotoxy(20, 23);
+    printf("┌─ MESSAGE ──────────────────────────────────────────────┐");
+    gotoxy(20, 24);
+    printf("│ %-55.55s│", message);
+    gotoxy(20, 25);
+    printf("└────────────────────────────────────────────────────────┘");
     Sleep(delay_ms);
     // Clear message
-    gotoxy(25, 23);
-    printf("MSG: %-50.50s", "");
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    gotoxy(20, 23);
+    printf("                                                           ");
+    gotoxy(20, 24);
+    printf("                                                           ");
+    gotoxy(20, 25);
+    printf("                                                           ");
 }
 
 
@@ -436,7 +590,21 @@ void play_at_bat() {
 int main() {
     // --- Initialization ---
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    hInput = GetStdHandle(STD_INPUT_HANDLE);
     srand(time(NULL));
+    
+    // Store original console modes and code page for restoration
+    GetConsoleMode(hConsole, &originalOutputMode);
+    GetConsoleMode(hInput, &originalInputMode);
+    originalOutputCP = GetConsoleOutputCP();
+    
+    // Register cleanup function to run at exit
+    atexit(exit_cleanup);
+    
+    // Set up signal handlers for graceful exit
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    SetConsoleCtrlHandler(console_handler, TRUE);
     
     // Set console to use UTF-8 for block characters
     SetConsoleOutputCP(CP_UTF8);
@@ -488,19 +656,25 @@ int main() {
     // --- Game Over ---
     draw_field();
     update_scoreboard();
-    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    gotoxy(35, 12);
-    printf("GAME OVER!");
-    gotoxy(32, 14);
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_BLUE);
+    gotoxy(30, 12);
+    printf("   GAME OVER!   ");
+    gotoxy(25, 14);
     if (score[1] > score[0]) {
-        printf("%s WIN!", home_team_name);
+        printf("  %s WIN!  ", home_team_name);
     } else if (score[0] > score[1]) {
-        printf("%s WIN!", visitor_team_name);
+        printf("  %s WIN!  ", visitor_team_name);
     } else {
-        printf("IT'S A TIE!");
+        printf("   IT'S A TIE!   ");
     }
     
-    gotoxy(1, 25);
-    set_color(7); // Reset to default white on black
+    // Wait for user input before cleanup
+    gotoxy(25, 16);
+    set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("Press any key to exit...");
+    _getch();
+    
+    // Clean up and reset console
+    cleanup_console();
     return 0;
 }
