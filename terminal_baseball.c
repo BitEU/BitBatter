@@ -25,9 +25,17 @@ int TOTAL_INNINGS = 3;
 #define FIELD_COLOR 2 // Green background
 #define DIRT_COLOR 6  // Brown/dark yellow background
 #define LINE_COLOR 15 // White foreground
-#define GRASS_CHAR ' '
-#define DIRT_CHAR ' '
+#define GRASS_CHAR "░" // Light Shade character '░' (U+2591) - UTF-8 encoded
+#define DIRT_CHAR "▓" // Dark Shade character '▓' (U+2593) - UTF-8 encoded
 #define LINE_CHAR 219 // Solid block character '█'
+#define BACKGROUND_DIRT_ORANGE (BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_INTENSITY) // Bright brown/orange dirt color
+
+// ANSI color codes for true color support
+#define ANSI_RESET "\033[0m"
+#define ANSI_BG_GREEN "\033[48;2;34;139;34m"      // Forest green background
+#define ANSI_BG_DIRT "\033[48;2;184;115;51m"      // Natural clay/dirt orange (#B87333)
+#define ANSI_FG_WHITE "\033[38;2;255;255;255m"    // White foreground
+#define ANSI_FG_BLUE "\033[48;2;0;100;255m"       // Blue foreground
 
 // Console screen buffer handle
 HANDLE hConsole;
@@ -210,6 +218,31 @@ void draw_block(int x, int y, char ch, int color) {
 }
 
 /**
+ * @brief Draws a single block of the field with a specified string and color.
+ * @param x The column coordinate.
+ * @param y The row coordinate.
+ * @param str The string to draw (for UTF-8 characters).
+ * @param color The color attribute.
+ */
+void draw_block_str(int x, int y, const char* str, int color) {
+    gotoxy(x, y);
+    set_color(color);
+    printf("%s", str);
+}
+
+/**
+ * @brief Draws a single block using ANSI escape sequences for true color.
+ * @param x The column coordinate.
+ * @param y The row coordinate.
+ * @param str The string to draw.
+ * @param ansi_color The ANSI color escape sequence.
+ */
+void draw_block_ansi(int x, int y, const char* str, const char* ansi_color) {
+    gotoxy(x, y);
+    printf("%s%s%s", ansi_color, str, ANSI_RESET);
+}
+
+/**
  * @brief Draws the main baseball field using block characters.
  */
 void draw_field() {
@@ -220,7 +253,7 @@ void draw_field() {
     // Draw Grass (outfield) - start lower to make room for UI
     for (int y = 9; y < 25; y++) {
         for (int x = 0; x < 80; x++) {
-            draw_block(x, y, GRASS_CHAR, BACKGROUND_GREEN);
+            draw_block_ansi(x, y, GRASS_CHAR, ANSI_BG_GREEN);
         }
     }
 
@@ -234,7 +267,7 @@ void draw_field() {
             
             // Create diamond infield
             if (dx + dy <= 15 && y >= 15) {
-                draw_block(x, y, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+                draw_block_ansi(x, y, DIRT_CHAR, ANSI_BG_DIRT);
             }
         }
     }
@@ -243,7 +276,7 @@ void draw_field() {
     for (int py = 17; py <= 19; py++) {
         for (int px = 37; px <= 41; px++) {
             if ((px-39)*(px-39) + (py-18)*(py-18) <= 4) { // Circular mound
-                draw_block(px, py, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_INTENSITY);
+                draw_block_ansi(px, py, DIRT_CHAR, ANSI_BG_DIRT);
             }
         }
     }
@@ -326,8 +359,8 @@ void draw_field() {
     
     // Draw outfield warning track (brown/tan color) - adjusted coordinates
     for (int x = 5; x < 75; x++) {
-        draw_block(x, 9, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
-        draw_block(x, 10, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+        draw_block_ansi(x, 9, DIRT_CHAR, ANSI_BG_DIRT);
+        draw_block_ansi(x, 10, DIRT_CHAR, ANSI_BG_DIRT);
     }
 }
 
@@ -500,13 +533,13 @@ void play_at_bat() {
             
             // Clear previous ball position
             gotoxy(pitch_x, pitch_y);
-            draw_block(pitch_x, pitch_y, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+            draw_block_ansi(pitch_x, pitch_y, DIRT_CHAR, ANSI_BG_DIRT);
             
             // Redraw pitcher's mound properly - updated coordinates
             for (int py = 17; py <= 19; py++) {
                 for (int px = 37; px <= 41; px++) {
                     if ((px-39)*(px-39) + (py-18)*(py-18) <= 4) {
-                        draw_block(px, py, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_INTENSITY);
+                        draw_block_ansi(px, py, DIRT_CHAR, ANSI_BG_DIRT);
                     }
                 }
             }
@@ -532,7 +565,7 @@ void play_at_bat() {
         }
         
         // Clear the ball after it crosses the plate
-        draw_block(pitch_x, pitch_y, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+        draw_block_ansi(pitch_x, pitch_y, DIRT_CHAR, ANSI_BG_DIRT);
 
 
         // --- Determine Outcome ---
@@ -606,8 +639,9 @@ int main() {
     signal(SIGTERM, signal_handler);
     SetConsoleCtrlHandler(console_handler, TRUE);
     
-    // Set console to use UTF-8 for block characters
+    // Set console to use UTF-8 for Unicode characters
     SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8); // Also set input code page
     // Needed for block characters to render correctly
     SetConsoleMode(hConsole, ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
