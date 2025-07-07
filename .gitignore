@@ -13,6 +13,8 @@ v17/
 *.bin
 *.CE0
 *.USER
+*.exe
+*.obj
 *.log.*
 
 # Byte-compiled / optimized / DLL files
