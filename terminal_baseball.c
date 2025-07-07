@@ -217,117 +217,117 @@ void draw_field() {
     system("cls");
     set_color(FIELD_COLOR);
 
-    // Draw Grass (outfield)
-    for (int y = 0; y < 25; y++) {
+    // Draw Grass (outfield) - start lower to make room for UI
+    for (int y = 9; y < 25; y++) {
         for (int x = 0; x < 80; x++) {
             draw_block(x, y, GRASS_CHAR, BACKGROUND_GREEN);
         }
     }
 
-    // Draw diamond-shaped infield dirt (more realistic shape)
-    for (int y = 10; y <= 20; y++) {
+    // Draw diamond-shaped infield dirt (more realistic shape) - adjusted Y coordinates
+    for (int y = 15; y <= 22; y++) {
         for (int x = 10; x < 70; x++) {
             // Calculate distance from center point to create diamond shape
-            int center_x = 39, center_y = 15;
+            int center_x = 39, center_y = 18;
             int dx = abs(x - center_x);
             int dy = abs(y - center_y);
             
             // Create diamond infield
-            if (dx + dy <= 15 && y >= 10) {
+            if (dx + dy <= 15 && y >= 15) {
                 draw_block(x, y, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
             }
         }
     }
     
-    // Draw pitcher's mound (larger and more visible)
-    for (int py = 14; py <= 16; py++) {
+    // Draw pitcher's mound (larger and more visible) - adjusted Y coordinates
+    for (int py = 17; py <= 19; py++) {
         for (int px = 37; px <= 41; px++) {
-            if ((px-39)*(px-39) + (py-15)*(py-15) <= 4) { // Circular mound
+            if ((px-39)*(px-39) + (py-18)*(py-18) <= 4) { // Circular mound
                 draw_block(px, py, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_INTENSITY);
             }
         }
     }
 
-    // Draw foul lines (more prominent and accurate)
+    // Draw foul lines (more prominent and accurate) - adjusted coordinates
     // First base foul line (from home to first base and beyond)
     for(int i = 0; i <= 15; i++) {
         int x = 39 + (i * 11) / 15; // More gradual slope to first base
-        int y = 20 - i;
-        if (x < 80 && y >= 0) {
+        int y = 23 - i;
+        if (x < 80 && y >= 9) {
             draw_block(x, y, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
         }
     }
     // Third base foul line (from home to third base and beyond)
     for(int i = 0; i <= 15; i++) {
         int x = 39 - (i * 11) / 15; // More gradual slope to third base
-        int y = 20 - i;
-        if (x >= 0 && y >= 0) {
+        int y = 23 - i;
+        if (x >= 0 && y >= 9) {
             draw_block(x, y, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
         }
     }
     
-    // Base paths (connect the bases)
+    // Base paths (connect the bases) - adjusted coordinates
     // Home to first base path
     for(int i = 0; i <= 10; i++) {
         int x = 39 + (i * 11) / 10;
-        int y = 20 - (i * 5) / 10;
+        int y = 23 - (i * 5) / 10;
         draw_block(x, y, '.', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     }
     // First to second base path
     for(int i = 0; i <= 10; i++) {
         int x = 50 - (i * 11) / 10;
-        int y = 15 - (i * 5) / 10;
+        int y = 18 - (i * 5) / 10;
         draw_block(x, y, '.', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     }
     // Second to third base path
     for(int i = 0; i <= 10; i++) {
         int x = 39 - (i * 11) / 10;
-        int y = 10 + (i * 5) / 10;
+        int y = 13 + (i * 5) / 10;
         draw_block(x, y, '.', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     }
     // Third to home base path
     for(int i = 0; i <= 10; i++) {
         int x = 28 + (i * 11) / 10;
-        int y = 15 + (i * 5) / 10;
+        int y = 18 + (i * 5) / 10;
         draw_block(x, y, '.', FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     }
 
-    // Draw prominent bases (make them clearly visible and properly positioned)
+    // Draw prominent bases (make them clearly visible and properly positioned) - adjusted coordinates
     // Home Plate (at bottom of diamond) - White base
-    draw_block(39, 20, 'H', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(38, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(40, 19, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(39, 23, 'H', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(38, 22, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(40, 22, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
     // First Base (right side of diamond) - White base
-    draw_block(50, 15, '1', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(49, 15, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(50, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(49, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(50, 18, '1', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(49, 18, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(50, 17, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(49, 17, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
     // Second Base (top of diamond) - White base
-    draw_block(39, 10, '2', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(38, 10, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(39, 9, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(38, 9, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(39, 13, '2', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(38, 13, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(39, 12, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(38, 12, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     
     // Third Base (left side of diamond) - White base
-    draw_block(28, 15, '3', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(29, 15, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(28, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    draw_block(29, 14, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(28, 18, '3', FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(29, 18, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(28, 17, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    draw_block(29, 17, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
 
-    // Draw batter's boxes (more realistic)
+    // Draw batter's boxes (more realistic) - adjusted coordinates
     // Left batter's box
-    for(int i=0; i<4; i++) draw_block(36, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-    for(int i=0; i<4; i++) draw_block(37, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    for(int i=0; i<4; i++) draw_block(36, 22+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    for(int i=0; i<4; i++) draw_block(37, 22+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     // Right batter's box
-    for(int i=0; i<4; i++) draw_block(41, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-    for(int i=0; i<4; i++) draw_block(42, 19+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    for(int i=0; i<4; i++) draw_block(41, 22+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    for(int i=0; i<4; i++) draw_block(42, 22+i, LINE_CHAR, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     
-    // Draw outfield warning track (brown/tan color)
+    // Draw outfield warning track (brown/tan color) - adjusted coordinates
     for (int x = 5; x < 75; x++) {
-        draw_block(x, 2, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
-        draw_block(x, 3, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+        draw_block(x, 9, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
+        draw_block(x, 10, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
     }
 }
 
@@ -335,57 +335,57 @@ void draw_field() {
  * @brief Updates the scoreboard and game state display.
  */
 void update_scoreboard() {
-    // Title with bright colors
+    // Title with bright colors - positioned higher to avoid field
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_BLUE);
-    gotoxy(2, 1);
+    gotoxy(25, 0);
     printf("   Terminal League Baseball   ");
     
     // Reset color for scoreboard
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 
-    // Team Scores with improved formatting
-    gotoxy(2, 3);
-    printf("╔══════════════════════════════╗");
-    gotoxy(2, 4);
-    printf("║ TEAM                    R    ║");
-    gotoxy(2, 5);
-    printf("╠══════════════════════════════╣");
-    gotoxy(2, 6);
-    printf("║ %-15.15s       %d    ║", visitor_team_name, score[0]);
-    gotoxy(2, 7);
-    printf("║ %-15.15s       %d    ║", home_team_name, score[1]);
-    gotoxy(2, 8);
-    printf("╚══════════════════════════════╝");
+    // Team Scores with improved formatting - positioned at left edge
+    gotoxy(0, 2);
+    printf("┌─────────────────────────────┐");
+    gotoxy(0, 3);
+    printf("│ TEAM                    R   │");
+    gotoxy(0, 4);
+    printf("├─────────────────────────────┤");
+    gotoxy(0, 5);
+    printf("│ %-15.15s         %d   │", visitor_team_name, score[0]);
+    gotoxy(0, 6);
+    printf("│ %-15.15s         %d   │", home_team_name, score[1]);
+    gotoxy(0, 7);
+    printf("└─────────────────────────────┘");
 
-    // Game status with colored background
+    // Game status with colored background - positioned to align with other boxes
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY | BACKGROUND_GREEN);
-    gotoxy(55, 3);
+    gotoxy(32, 2);
     printf("  INNING: %s %d  ", (current_half == 0) ? "Top" : "Bot", current_inning);
 
-    // Game State with box drawing
+    // Game State with box drawing - properly aligned
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    gotoxy(55, 5);
+    gotoxy(32, 4);
     printf("┌─────────────┐");
-    gotoxy(55, 6);
-    printf("│ Outs:   %d   │", outs);
-    gotoxy(55, 7);
+    gotoxy(32, 5);
+    printf("│ Outs:    %d  │", outs);
+    gotoxy(32, 6);
     printf("│ Strikes: %d  │", strikes);
-    gotoxy(55, 8);
+    gotoxy(32, 7);
     printf("│ Balls:   %d  │", balls);
-    gotoxy(55, 9);
+    gotoxy(32, 8);
     printf("└─────────────┘");
 
-    // Base Runners with improved layout
+    // Base Runners with improved layout - positioned further right
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    gotoxy(55, 11);
+    gotoxy(47, 4);
     printf("┌─ BASES ──────┐");
-    gotoxy(55, 12);
+    gotoxy(47, 5);
     printf("│      ");
     set_color(bases[1] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
     printf("2nd");
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    printf("      │");
-    gotoxy(55, 13);
+    printf("     │");
+    gotoxy(47, 6);
     printf("│  ");
     set_color(bases[2] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
     printf("3rd");
@@ -394,8 +394,8 @@ void update_scoreboard() {
     set_color(bases[0] ? (FOREGROUND_RED | FOREGROUND_INTENSITY | BACKGROUND_RED) : (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
     printf("1st");
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    printf("  │");
-    gotoxy(55, 14);
+    printf("   │");
+    gotoxy(47, 7);
     printf("└──────────────┘");
 }
 
@@ -407,21 +407,21 @@ void update_scoreboard() {
  */
 void show_message(const char* message, int delay_ms) {
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY | BACKGROUND_BLUE); // Bright Yellow on Blue
-    gotoxy(20, 23);
-    printf("┌─ MESSAGE ──────────────────────────────────────────────┐");
-    gotoxy(20, 24);
-    printf("│ %-55.55s│", message);
-    gotoxy(20, 25);
-    printf("└────────────────────────────────────────────────────────┘");
+    gotoxy(10, 25);
+    printf("┌─ MESSAGE ─────────────────────────────────────────────────┐");
+    gotoxy(10, 26);
+    printf("│ %-57.57s│", message);
+    gotoxy(10, 27);
+    printf("└───────────────────────────────────────────────────────────┘");
     Sleep(delay_ms);
     // Clear message
     set_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-    gotoxy(20, 23);
-    printf("                                                           ");
-    gotoxy(20, 24);
-    printf("                                                           ");
-    gotoxy(20, 25);
-    printf("                                                           ");
+    gotoxy(10, 25);
+    printf("                                                             ");
+    gotoxy(10, 26);
+    printf("                                                             ");
+    gotoxy(10, 27);
+    printf("                                                             ");
 }
 
 
@@ -479,7 +479,7 @@ void play_at_bat() {
 
         // --- Pitch Animation ---
         int pitch_land_time = 250 + (rand() % 250); // Pitch will take 250-500ms
-        int pitch_y = 15;
+        int pitch_y = 18;  // Updated to match new pitcher's mound position
         int pitch_x = 39;
         char ball_char = 'o';
         
@@ -502,17 +502,17 @@ void play_at_bat() {
             gotoxy(pitch_x, pitch_y);
             draw_block(pitch_x, pitch_y, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN);
             
-            // Redraw pitcher's mound properly
-            for (int py = 14; py <= 16; py++) {
+            // Redraw pitcher's mound properly - updated coordinates
+            for (int py = 17; py <= 19; py++) {
                 for (int px = 37; px <= 41; px++) {
-                    if ((px-39)*(px-39) + (py-15)*(py-15) <= 4) {
+                    if ((px-39)*(px-39) + (py-18)*(py-18) <= 4) {
                         draw_block(px, py, DIRT_CHAR, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_INTENSITY);
                     }
                 }
             }
             
-            // Calculate new position
-            pitch_y = 15 + (int)(progress * 5); // Moves from y=15 to y=20
+            // Calculate new position - updated to match new field layout
+            pitch_y = 18 + (int)(progress * 5); // Moves from y=18 to y=23
             pitch_x = 39;
 
             // Draw ball
