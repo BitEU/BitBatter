@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use crate::team::{Team, TeamManager};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InningHalf {
@@ -15,6 +15,24 @@ pub enum PitchState {
     Swinging { frames_left: u8 },
     BallInPlay { frames_left: u8 },
     ShowResult { result: PlayResult, frames_left: u8 },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum GameMode {
+    TeamSelection { 
+        selected_home: Option<String>, 
+        selected_away: Option<String>,
+        input_buffer: String,
+        input_mode: TeamInputMode,
+    },
+    Playing,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TeamInputMode {
+    None,
+    SelectingAway,
+    SelectingHome,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +97,10 @@ impl PitchLocation {
 
 #[derive(Debug, Clone)]
 pub struct GameState {
+    pub mode: GameMode,
+    pub team_manager: TeamManager,
+    pub home_team: Option<String>,
+    pub away_team: Option<String>,
     pub inning: u8,
     pub half: InningHalf,
     pub outs: u8,
@@ -97,7 +119,19 @@ pub struct GameState {
 
 impl GameState {
     pub fn new() -> Self {
+        let mut team_manager = TeamManager::new();
+        let _ = team_manager.load_teams(); // Load teams at startup
+        
         Self {
+            mode: GameMode::TeamSelection { 
+                selected_home: None, 
+                selected_away: None,
+                input_buffer: String::new(),
+                input_mode: TeamInputMode::None,
+            },
+            team_manager,
+            home_team: None,
+            away_team: None,
             inning: 1,
             half: InningHalf::Top,
             outs: 0,
@@ -110,9 +144,38 @@ impl GameState {
             pitch_state: PitchState::ChoosePitch,
             pitch_location: None,
             swing_location: None,
-            message: "Choose your pitch!".to_string(),
+            message: "Select teams to start playing!".to_string(),
             game_over: false,
         }
+    }
+
+    pub fn start_game(&mut self, home_team: String, away_team: String) {
+        self.home_team = Some(home_team);
+        self.away_team = Some(away_team);
+        self.mode = GameMode::Playing;
+        self.message = "Choose your pitch!".to_string();
+    }
+
+    pub fn get_current_batting_team(&self) -> Option<&Team> {
+        match self.half {
+            InningHalf::Top => self.away_team.as_ref().and_then(|t| self.team_manager.get_team(t)),
+            InningHalf::Bottom => self.home_team.as_ref().and_then(|t| self.team_manager.get_team(t)),
+        }
+    }
+
+    pub fn get_current_pitching_team(&self) -> Option<&Team> {
+        match self.half {
+            InningHalf::Top => self.home_team.as_ref().and_then(|t| self.team_manager.get_team(t)),
+            InningHalf::Bottom => self.away_team.as_ref().and_then(|t| self.team_manager.get_team(t)),
+        }
+    }
+
+    pub fn get_current_batter(&self) -> Option<&crate::team::Player> {
+        self.get_current_batting_team()?.get_batter(self.current_batter_idx)
+    }
+
+    pub fn get_current_pitcher(&self) -> Option<&crate::team::Player> {
+        self.get_current_pitching_team()?.get_current_pitcher()
     }
 
     pub fn batting_team(&self) -> &str {
@@ -123,7 +186,10 @@ impl GameState {
     }
 
     pub fn advance_batter(&mut self) {
-        self.current_batter_idx = (self.current_batter_idx + 1) % 9;
+        let batting_order_size = self.get_current_batting_team()
+            .map(|t| t.batting_order_size())
+            .unwrap_or(9);
+        self.current_batter_idx = (self.current_batter_idx + 1) % batting_order_size;
         self.balls = 0;
         self.strikes = 0;
         self.pitch_state = PitchState::ChoosePitch;

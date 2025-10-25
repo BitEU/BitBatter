@@ -1,25 +1,127 @@
-use crate::game::{GameState, InningHalf, PitchState};
+use crate::game::{GameMode, GameState, InningHalf, PitchState};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
 pub fn render_game(frame: &mut Frame, game_state: &GameState, engine: &crate::game::GameEngine, input_state: &crate::input::InputState) {
+    match &game_state.mode {
+        GameMode::TeamSelection { selected_home, selected_away, input_buffer, input_mode } => {
+            render_team_selection(frame, game_state, selected_home, selected_away, input_buffer, input_mode);
+        }
+        GameMode::Playing => {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(7),  // Scoreboard
+                    Constraint::Min(12),    // Field
+                    Constraint::Length(5),  // Controls/Message
+                ])
+                .split(frame.area());
+
+            render_scoreboard(frame, chunks[0], game_state);
+            render_field(frame, chunks[1], game_state, input_state);
+            render_controls(frame, chunks[2], game_state, engine);
+        }
+    }
+}
+
+fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_home: &Option<String>, selected_away: &Option<String>, input_buffer: &str, input_mode: &crate::game::TeamInputMode) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),  // Scoreboard
-            Constraint::Min(12),    // Field
-            Constraint::Length(5),  // Controls/Message
+            Constraint::Length(3),   // Title
+            Constraint::Min(10),     // Team selection
+            Constraint::Length(5),   // Instructions
         ])
         .split(frame.area());
 
-    render_scoreboard(frame, chunks[0], game_state);
-    render_field(frame, chunks[1], game_state, input_state);
-    render_controls(frame, chunks[2], game_state, engine);
+    // Title
+    let title = Paragraph::new("⚾ Team Selection ⚾")
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .block(Block::default().borders(Borders::ALL));
+    frame.render_widget(title, chunks[0]);
+
+    // Team selection
+    let team_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(chunks[1]);
+
+    // Away team selection
+    let away_teams: Vec<ListItem> = game_state.team_manager.get_team_list()
+        .iter()
+        .enumerate()
+        .map(|(idx, team_abbr)| {
+            let team = game_state.team_manager.get_team(team_abbr).unwrap();
+            let style = if selected_away.as_ref() == Some(team_abbr) {
+                Style::default().fg(Color::Black).bg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team.name)).style(style)
+        })
+        .collect();
+
+    let away_list = List::new(away_teams)
+        .block(Block::default()
+            .title("Away Team (Press A + Number)")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Blue)));
+    frame.render_widget(away_list, team_chunks[0]);
+
+    // Home team selection
+    let home_teams: Vec<ListItem> = game_state.team_manager.get_team_list()
+        .iter()
+        .enumerate()
+        .map(|(idx, team_abbr)| {
+            let team = game_state.team_manager.get_team(team_abbr).unwrap();
+            let style = if selected_home.as_ref() == Some(team_abbr) {
+                Style::default().fg(Color::Black).bg(Color::Green)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team.name)).style(style)
+        })
+        .collect();
+
+    let home_list = List::new(home_teams)
+        .block(Block::default()
+            .title("Home Team (Press H + Number)")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red)));
+    frame.render_widget(home_list, team_chunks[1]);
+
+    // Instructions
+    let mut instructions = vec![
+        Line::from("Press A then enter team # (1-30) and ENTER | Press H then enter team # (1-30) and ENTER"),
+    ];
+    
+    if !input_buffer.is_empty() {
+        instructions.push(Line::from(Span::styled(
+            format!("Current input: {} (press ENTER to confirm)", input_buffer),
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        )));
+    }
+    
+    if selected_home.is_some() && selected_away.is_some() && input_buffer.is_empty() {
+        instructions.push(Line::from(Span::styled(
+            "Press SPACE or ENTER to start the game!",
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        )));
+    }
+
+    let instruction_paragraph = Paragraph::new(instructions)
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL).title("Instructions"));
+    frame.render_widget(instruction_paragraph, chunks[2]);
 }
 
 fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
@@ -42,13 +144,29 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
         state.balls, state.strikes, state.outs
     );
 
-    let batter_text = format!(
-        "Batter #{} - {}",
-        state.current_batter_idx + 1,
-        state.batting_team()
+    let batter_info = if let Some(batter) = state.get_current_batter() {
+        format!("Batter: {} ({})", batter.stats.name, batter.position.name())
+    } else {
+        format!("Batter #{} - {}", state.current_batter_idx + 1, state.batting_team())
+    };
+
+    let _pitcher_info = if let Some(pitcher) = state.get_current_pitcher() {
+        format!("Pitcher: {}", pitcher.stats.name)
+    } else {
+        "Pitcher: Unknown".to_string()
+    };
+
+    let team_names = format!(
+        "{} @ {}",
+        state.away_team.as_ref().map(|t| state.team_manager.get_team(t).map(|team| team.name.as_str()).unwrap_or(t)).unwrap_or("Away"),
+        state.home_team.as_ref().map(|t| state.team_manager.get_team(t).map(|team| team.name.as_str()).unwrap_or(t)).unwrap_or("Home")
     );
 
     let scoreboard = vec![
+        Line::from(Span::styled(
+            team_names,
+            Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+        )),
         Line::from(Span::styled(
             inning_text,
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
@@ -62,7 +180,7 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
             Style::default().fg(Color::White),
         )),
         Line::from(Span::styled(
-            batter_text,
+            batter_info,
             Style::default().fg(Color::Green),
         )),
     ];

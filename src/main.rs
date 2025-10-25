@@ -1,13 +1,14 @@
 mod game;
 mod input;
 mod ui;
+mod team;
 
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use game::{GameEngine, GameState, HitType, OutType, PitchLocation, PitchState, PlayResult};
-use input::{poll_input, GameInput, InputState};
+use game::{GameEngine, GameMode, GameState, HitType, OutType, PitchLocation, PitchState, PlayResult};
+use input::{GameInput, InputState};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{
     io,
@@ -52,7 +53,7 @@ fn run_game(
         let frame_start = Instant::now();
 
         // Handle input
-        if let Some(input) = poll_input()? {
+        if let Some(input) = input::poll_input_with_modifiers()? {
             if input == GameInput::Quit {
                 break;
             }
@@ -89,6 +90,12 @@ fn handle_input(
     input_state: &mut InputState,
     input: GameInput,
 ) {
+    // Handle team selection first
+    if let GameMode::TeamSelection { .. } = &state.mode {
+        handle_team_selection_input(state, input);
+        return;
+    }
+
     match &state.pitch_state {
         PitchState::ChoosePitch => {
             if let GameInput::SelectPitch(idx) = input {
@@ -102,7 +109,7 @@ fn handle_input(
                 }
             }
         }
-        PitchState::Aiming { pitch_type } => {
+        PitchState::Aiming { pitch_type: _ } => {
             match input {
                 GameInput::Up | GameInput::Down | GameInput::Left | GameInput::Right => {
                     input_state.update(&input);
@@ -158,6 +165,63 @@ fn handle_input(
     }
 }
 
+fn handle_team_selection_input(state: &mut GameState, input: GameInput) {
+    if let GameMode::TeamSelection { selected_home, selected_away, input_buffer, input_mode } = &mut state.mode {
+        match input {
+            GameInput::SelectAwayTeam => {
+                *input_buffer = String::new();
+                *input_mode = game::TeamInputMode::SelectingAway;
+                state.message = "Enter away team number (1-30), then press ENTER:".to_string();
+            }
+            GameInput::SelectHomeTeam => {
+                *input_buffer = String::new();
+                *input_mode = game::TeamInputMode::SelectingHome;
+                state.message = "Enter home team number (1-30), then press ENTER:".to_string();
+            }
+            GameInput::NumberInput(digit) => {
+                if *input_mode != game::TeamInputMode::None && input_buffer.len() < 2 {
+                    input_buffer.push(digit);
+                    state.message = format!("Entered: {}", input_buffer);
+                }
+            }
+            GameInput::Action => {
+                if !input_buffer.is_empty() {
+                    if let Ok(num) = input_buffer.parse::<usize>() {
+                        let teams = state.team_manager.get_team_list();
+                        let idx = num.saturating_sub(1);
+                        
+                        if idx < teams.len() {
+                            match input_mode {
+                                game::TeamInputMode::SelectingAway => {
+                                    let new_away = teams[idx].clone();
+                                    *selected_away = Some(new_away.clone());
+                                    state.message = format!("Away team: {} selected", new_away);
+                                }
+                                game::TeamInputMode::SelectingHome => {
+                                    let new_home = teams[idx].clone();
+                                    *selected_home = Some(new_home.clone());
+                                    state.message = format!("Home team: {} selected", new_home);
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            state.message = format!("Invalid team number: {}", num);
+                        }
+                    }
+                    input_buffer.clear();
+                    *input_mode = game::TeamInputMode::None;
+                } else if selected_home.is_some() && selected_away.is_some() {
+                    // Start game if both teams selected and buffer is empty
+                    let home = selected_home.clone().unwrap();
+                    let away = selected_away.clone().unwrap();
+                    state.start_game(home, away);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &mut InputState) {
     match &mut state.pitch_state {
         PitchState::Pitching { frames_left } => {
@@ -176,12 +240,14 @@ fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &m
         PitchState::Swinging { frames_left } => {
             *frames_left -= 1;
             if *frames_left == 0 {
-                // Calculate result
+                // Calculate result with player stats
                 let pitch_loc = state.pitch_location.unwrap();
                 let swing_loc = state.swing_location;
+                let batter = state.get_current_batter();
+                let pitcher = state.get_current_pitcher();
                 
                 // For now, use pitch type 0 (could track the actual type)
-                let result = engine.calculate_pitch_result(pitch_loc, swing_loc, 0);
+                let result = engine.calculate_pitch_result(pitch_loc, swing_loc, 0, batter, pitcher);
                 
                 process_play_result(state, &result);
                 

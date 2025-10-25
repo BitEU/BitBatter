@@ -1,4 +1,5 @@
 use crate::game::state::{HitType, OutType, PitchLocation, PlayResult};
+use crate::team::Player;
 use rand::Rng;
 
 pub struct GameEngine {
@@ -44,7 +45,9 @@ impl GameEngine {
         &self,
         pitch_location: PitchLocation,
         swing_location: Option<PitchLocation>,
-        pitch_type_idx: usize,
+        _pitch_type_idx: usize,
+        batter: Option<&Player>,
+        pitcher: Option<&Player>,
     ) -> PlayResult {
         let mut rng = rand::thread_rng();
 
@@ -63,27 +66,58 @@ impl GameEngine {
         let location_match = self.locations_match(pitch_location, swing_loc);
         let is_strike_zone = pitch_location.is_strike();
 
-        // Perfect contact
+        // Perfect contact - use player stats to influence outcomes
         if location_match && is_strike_zone {
-            let contact_quality = rng.gen_range(1..=100);
+            let mut contact_quality = rng.gen_range(1..=100);
+            
+            // Adjust contact quality based on batter's skills
+            if let Some(batter) = batter {
+                // Better batters (higher barrel %) get bonus to contact quality
+                let skill_bonus = (batter.stats.barrel_percent * 2.0) as i32;
+                contact_quality = (contact_quality + skill_bonus).min(100);
+            }
+
+            // Adjust based on pitcher's ability to limit hard contact
+            if let Some(pitcher) = pitcher {
+                // Better pitchers (lower barrel % allowed) reduce contact quality
+                let pitcher_penalty = (pitcher.stats.barrel_percent * 1.5) as i32;
+                contact_quality = (contact_quality - pitcher_penalty).max(1);
+            }
+
             return match contact_quality {
-                90..=100 => PlayResult::Hit(HitType::HomeRun),
-                70..=89 => {
+                85..=100 => {
+                    // Home run chance influenced by batter's power stats
+                    let hr_chance = if let Some(batter) = batter {
+                        (batter.stats.max_distance as f32 / 450.0 * 100.0) as u32
+                    } else { 50 };
+                    
+                    if rng.gen_range(1..=100) <= hr_chance.min(40) {
+                        PlayResult::Hit(HitType::HomeRun)
+                    } else {
+                        PlayResult::Hit(HitType::Triple)
+                    }
+                }
+                60..=84 => {
                     let hit_roll = rng.gen_range(1..=10);
                     match hit_roll {
-                        1..=3 => PlayResult::Hit(HitType::Triple),
-                        4..=7 => PlayResult::Hit(HitType::Double),
+                        1..=2 => PlayResult::Hit(HitType::Triple),
+                        3..=5 => PlayResult::Hit(HitType::Double),
                         _ => PlayResult::Hit(HitType::Single),
                     }
                 }
-                50..=69 => PlayResult::Hit(HitType::Single),
-                30..=49 => PlayResult::Foul,
+                40..=59 => PlayResult::Hit(HitType::Single),
+                25..=39 => PlayResult::Foul,
                 _ => {
-                    let out_roll = rng.gen_range(1..=3);
-                    match out_roll {
-                        1 => PlayResult::Out(OutType::Flyout),
-                        2 => PlayResult::Out(OutType::Groundout),
-                        _ => PlayResult::Out(OutType::LineOut),
+                    // Ground ball vs fly ball tendency based on batter stats
+                    let gb_tendency = batter.map(|b| b.stats.gb).unwrap_or(50.0);
+                    if rng.gen_range(0.0..100.0) < gb_tendency {
+                        PlayResult::Out(OutType::Groundout)
+                    } else {
+                        let out_roll = rng.gen_range(1..=2);
+                        match out_roll {
+                            1 => PlayResult::Out(OutType::Flyout),
+                            _ => PlayResult::Out(OutType::LineOut),
+                        }
                     }
                 }
             };
