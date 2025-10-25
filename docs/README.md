@@ -1,6 +1,6 @@
 # Baseball TUI - Retro Terminal Baseball Game
 
-A retro-style baseball game for Windows Console (conhost) written in Rust, inspired by classic NES, Atari, and MS-DOS baseball games like RBI Baseball, Baseball Stars, and HardBall!
+A retro-style baseball game for Windows Console (conhost) written in Rust, inspired by classic NES, Atari, and MS-DOS baseball games like RBI Baseball, Baseball Stars, and HardBall! Stats are from https://baseballsavant.mlb.com/leaderboard/statcast?type=pitcher&year=2025&position=&team=&min=q&sort=barrels_per_pa&sortDir=desc
 
 **NEW in v0.1.1:** Professional ASCII field rendering! (User feedback implemented)
 
