@@ -124,9 +124,6 @@ baseball-tui/
 
 ## Future Enhancements
 
-- [ ] Team selection with custom rosters
-- [ ] Player stats that affect gameplay
-- [ ] Season mode with standings
 - [ ] Save/load games
 - [ ] More detailed fielding mechanics
 - [ ] Pitch animations
@@ -161,6 +158,13 @@ baseball-tui/
 **ASCII Field Art:**
 - ceejay3264's ascii_baseball project
 - GitHub: https://github.com/ceejay3264/ascii_baseball
+
+**Audio**
+- https://opengameart.org/content/3-melee-sounds
+- https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+- https://freesound.org/people/moxobna/sounds/32260/
+- https://freesound.org/people/SoundsExciting/sounds/365132/
+- https://freesound.org/people/FoolBoyMedia/sounds/397434/
 
 **Special Thanks:**
 - User feedback that led to the v0.1.1 field improvement!
