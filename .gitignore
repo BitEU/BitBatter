@@ -7,6 +7,10 @@ FileContentIndex/
 v17/
 .vs/
 *.csv
+!batter_SDG_2025.csv
+!batter_THW_2025.csv
+!pitcher_SDG_2025.csv
+!pitcher_THW_2025.csv
 *.xlsx
 *.xml
 *.json

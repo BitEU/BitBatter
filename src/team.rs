@@ -135,7 +135,7 @@ impl TeamManager {
         let team_abbreviations = [
             "ARI", "ATL", "BAL", "BOS", "CHC", "CIN", "CLE", "COL", "CWS", "DET",
             "HOU", "KC", "LAA", "LAD", "MIA", "MIL", "MIN", "NYM", "NYY", "OAK",
-            "PHI", "PIT", "SD", "SEA", "SF", "STL", "TB", "TEX", "TOR", "WSH"
+            "PHI", "PIT", "SD", "SDG", "SEA", "SF", "STL", "TB", "TEX", "THW", "TOR", "WSH"
         ];
 
         let team_names = [
@@ -162,11 +162,13 @@ impl TeamManager {
             ("PHI", "Philadelphia Phillies"),
             ("PIT", "Pittsburgh Pirates"),
             ("SD", "San Diego Padres"),
+            ("SDG", "Storm Dragons"),
             ("SEA", "Seattle Mariners"),
             ("SF", "San Francisco Giants"),
             ("STL", "St. Louis Cardinals"),
             ("TB", "Tampa Bay Rays"),
             ("TEX", "Texas Rangers"),
+            ("THW", "Thunder Hawks"),
             ("TOR", "Toronto Blue Jays"),
             ("WSH", "Washington Nationals"),
         ];
