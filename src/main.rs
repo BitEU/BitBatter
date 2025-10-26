@@ -2,7 +2,9 @@ mod game;
 mod input;
 mod ui;
 mod team;
+mod audio;
 
+use audio::AudioPlayer;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -45,6 +47,7 @@ fn run_game(
     let mut game_state = GameState::new();
     let engine = GameEngine::new();
     let mut input_state = InputState::new();
+    let audio_player = AudioPlayer::new();
 
     let target_fps = 30;
     let frame_time = Duration::from_millis(1000 / target_fps);
@@ -61,7 +64,7 @@ fn run_game(
         }
 
         // Update game logic (animations, etc.)
-        update_game_state(&mut game_state, &engine, &mut input_state);
+        update_game_state(&mut game_state, &engine, &mut input_state, audio_player.as_ref());
 
         // Render ONCE per frame - critical for no flicker!
         terminal.draw(|frame| {
@@ -222,7 +225,7 @@ fn handle_team_selection_input(state: &mut GameState, input: GameInput) {
     }
 }
 
-fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &mut InputState) {
+fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &mut InputState, audio_player: Option<&AudioPlayer>) {
     match &mut state.pitch_state {
         PitchState::Pitching { frames_left } => {
             *frames_left -= 1;
@@ -249,7 +252,19 @@ fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &m
                 // For now, use pitch type 0 (could track the actual type)
                 let result = engine.calculate_pitch_result(pitch_loc, swing_loc, 0, batter, pitcher);
                 
-                process_play_result(state, &result);
+                // Play sound based on result
+                if let Some(player) = audio_player {
+                    match &result {
+                        PlayResult::Hit(_) => player.play_bat_contact(),
+                        PlayResult::Foul => player.play_bat_contact(),
+                        PlayResult::Strike => player.play_miss(),
+                        PlayResult::Out(OutType::Groundout) => player.play_ground_ball(),
+                        PlayResult::Out(OutType::Flyout) | PlayResult::Out(OutType::LineOut) => player.play_catch(),
+                        _ => {}
+                    }
+                }
+                
+                process_play_result(state, &result, audio_player);
                 
                 state.pitch_state = PitchState::ShowResult {
                     result,
@@ -279,7 +294,7 @@ fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &m
     }
 }
 
-fn process_play_result(state: &mut GameState, result: &PlayResult) {
+fn process_play_result(state: &mut GameState, result: &PlayResult, audio_player: Option<&AudioPlayer>) {
     match result {
         PlayResult::Strike => {
             state.strikes += 1;
@@ -302,6 +317,15 @@ fn process_play_result(state: &mut GameState, result: &PlayResult) {
             state.message = "Foul ball!".to_string();
         }
         PlayResult::Hit(hit_type) => {
+            // Play cheer sound based on hit type
+            if let Some(player) = audio_player {
+                match hit_type {
+                    HitType::Single => player.play_cheer_single(),
+                    HitType::Double => player.play_cheer_double(),
+                    HitType::Triple | HitType::HomeRun => player.play_cheer_triple_and_homer(),
+                }
+            }
+            
             let bases = match hit_type {
                 HitType::Single => 1,
                 HitType::Double => 2,
