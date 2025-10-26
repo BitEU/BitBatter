@@ -1,6 +1,7 @@
 import os
 import time
 import glob
+import csv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -66,6 +67,53 @@ def clear_stale_files(directory):
     for f in part_files:
         print(f"Removing stale partial file: {f}")
         os.remove(f)
+
+def fill_empty_cells_with_zeros(directory):
+    """Process all CSV files in the directory and replace empty cells with 0."""
+    print(f"\n--- Post-processing: Filling empty cells with zeros ---")
+    csv_files = glob.glob(os.path.join(directory, "*.csv"))
+    
+    if not csv_files:
+        print("No CSV files found to process.")
+        return
+    
+    files_processed = 0
+    cells_filled = 0
+    
+    for csv_file in csv_files:
+        try:
+            # Read the CSV file
+            with open(csv_file, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+            
+            if not rows:
+                continue
+            
+            # Track if this file had any changes
+            file_modified = False
+            
+            # Process each row (skip header row at index 0)
+            for row_idx, row in enumerate(rows):
+                for col_idx, cell in enumerate(row):
+                    # Check if cell is empty (empty string or only whitespace)
+                    if cell.strip() == '':
+                        rows[row_idx][col_idx] = '0'
+                        cells_filled += 1
+                        file_modified = True
+            
+            # Write back to the file only if modified
+            if file_modified:
+                with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerows(rows)
+                files_processed += 1
+                print(f"Processed: {os.path.basename(csv_file)}")
+        
+        except Exception as e:
+            print(f"Error processing {os.path.basename(csv_file)}: {e}")
+    
+    print(f"\nPost-processing complete: {files_processed} files modified, {cells_filled} empty cells filled with zeros.")
 
 def main():
     driver = setup_driver()
@@ -174,6 +222,9 @@ def main():
     finally:
         print("\nAll tasks complete. Closing browser.")
         driver.quit()
+        
+        # Post-process all downloaded CSV files to fill empty cells with zeros
+        fill_empty_cells_with_zeros(DOWNLOAD_DIR)
 
 if __name__ == "__main__":
     main()
