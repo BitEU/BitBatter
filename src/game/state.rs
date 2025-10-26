@@ -120,6 +120,21 @@ impl PitchLocation {
         }
     }
 
+    pub fn from_numpad(num: u8) -> Self {
+        match num {
+            7 => PitchLocation::UpInside,
+            8 => PitchLocation::Up,
+            9 => PitchLocation::UpOutside,
+            4 => PitchLocation::Inside,
+            5 => PitchLocation::Middle,
+            6 => PitchLocation::Outside,
+            1 => PitchLocation::DownInside,
+            2 => PitchLocation::Down,
+            3 => PitchLocation::DownOutside,
+            _ => PitchLocation::Middle, // Invalid defaults to middle
+        }
+    }
+
     pub fn is_strike(&self) -> bool {
         !matches!(self, PitchLocation::UpInside | PitchLocation::UpOutside | 
                        PitchLocation::DownInside | PitchLocation::DownOutside)

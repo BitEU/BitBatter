@@ -14,6 +14,7 @@ pub enum GameInput {
     NumberInput(char),
     Pause,
     Quit,
+    DirectPosition(u8), // Numpad 1-9 for direct strike zone selection
 }
 
 pub fn poll_input() -> Result<Option<GameInput>, std::io::Error> {
@@ -39,15 +40,16 @@ fn parse_key_input(key_event: KeyEvent) -> Option<GameInput> {
         KeyCode::Char('q') | KeyCode::Char('Q') => Some(GameInput::Quit),
         KeyCode::Esc => Some(GameInput::Pause),
         
-        // Team selection - A + number for away team
-        KeyCode::Char(c) if c >= '1' && c <= '9' => {
-            if key_event.modifiers.contains(KeyModifiers::SHIFT) {
-                // Shift + number for away team (A is shift+a)
-                None // We'll handle this differently
-            } else {
-                let num = c.to_digit(10).unwrap() as usize;
-                Some(GameInput::SelectPitch(num - 1))
-            }
+        // Regular number keys (1-4) for pitch selection
+        KeyCode::Char(c) if c >= '1' && c <= '4' && !key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+            let num = c.to_digit(10).unwrap() as usize;
+            Some(GameInput::SelectPitch(num - 1))
+        }
+        
+        // SHIFT + number keys (1-9) for direct aiming (simulates numpad)
+        KeyCode::Char(c) if c >= '1' && c <= '9' && key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+            let num = c.to_digit(10).unwrap() as u8;
+            Some(GameInput::DirectPosition(num))
         }
         
         // Handle A + numbers for away team selection

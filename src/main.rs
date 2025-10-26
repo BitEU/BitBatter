@@ -113,7 +113,7 @@ fn handle_input(
                 if idx < engine.pitch_types.len() {
                     state.pitch_state = PitchState::Aiming { pitch_type: idx };
                     state.message = format!(
-                        "Aiming {}. Use arrows to aim, SPACE to pitch.",
+                        "Aiming {}. Use arrows or SHIFT+(1-9) to aim, SPACE to pitch.",
                         engine.get_pitch_name(idx)
                     );
                     input_state.reset();
@@ -124,6 +124,14 @@ fn handle_input(
             match input {
                 GameInput::Up | GameInput::Down | GameInput::Left | GameInput::Right => {
                     input_state.update(&input);
+                }
+                GameInput::DirectPosition(num) => {
+                    // Direct numpad selection - immediately lock in position
+                    let location = PitchLocation::from_numpad(num);
+                    state.pitch_location = Some(location);
+                    state.pitch_state = PitchState::Pitching { frames_left: 20 };
+                    state.message = "Pitch released!".to_string();
+                    input_state.reset();
                 }
                 GameInput::Action => {
                     // Lock in pitch location
@@ -145,6 +153,14 @@ fn handle_input(
             match input {
                 GameInput::Up | GameInput::Down | GameInput::Left | GameInput::Right => {
                     input_state.update(&input);
+                }
+                GameInput::DirectPosition(num) => {
+                    // Direct numpad selection - immediately swing
+                    let swing_loc = PitchLocation::from_numpad(num);
+                    state.swing_location = Some(swing_loc);
+                    state.pitch_state = PitchState::Swinging { frames_left: 10 };
+                    state.message = "Swing!".to_string();
+                    input_state.reset();
                 }
                 GameInput::Action => {
                     // Batter swings
@@ -293,7 +309,7 @@ fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &m
             if *frames_left == 0 {
                 // Pitch arrives - switch to batter
                 state.pitch_state = PitchState::WaitingForBatter;
-                state.message = "Batter up! Aim and press SPACE to swing, or let it go.".to_string();
+                state.message = "Batter up! Aim with arrows or SHIFT+(1-9), SPACE to swing, or let it go.".to_string();
                 input_state.reset();
             }
         }
