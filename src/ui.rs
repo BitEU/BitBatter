@@ -40,7 +40,7 @@ fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_hom
         .split(frame.area());
 
     // Title
-    let title = Paragraph::new("⚾ Team Selection ⚾")
+    let title = Paragraph::new("Team Selection")
         .alignment(Alignment::Center)
         .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
         .block(Block::default().borders(Borders::ALL));
@@ -129,8 +129,8 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
         "Inning: {} {}",
         state.inning,
         match state.half {
-            InningHalf::Top => "▲",
-            InningHalf::Bottom => "▼",
+            InningHalf::Top => "^",
+            InningHalf::Bottom => "v",
         }
     );
 
@@ -187,7 +187,7 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("⚾ Baseball Game ⚾")
+        .title("* Baseball Game *")
         .title_alignment(Alignment::Center);
 
     let paragraph = Paragraph::new(scoreboard)
@@ -219,9 +219,9 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
     // Credit: https://github.com/ceejay3264/ascii_baseball
 
     // Dynamic runner indicators - show filled circle if runner present
-    let r1 = if state.bases[0] { "●" } else { " " };  // 1st base
-    let r2 = if state.bases[1] { "●" } else { " " };  // 2nd base
-    let r3 = if state.bases[2] { "●" } else { " " };  // 3rd base
+    let r1 = if state.bases[0] { "*" } else { " " };  // 1st base
+    let r2 = if state.bases[1] { "*" } else { " " };  // 2nd base
+    let r3 = if state.bases[2] { "*" } else { " " };  // 3rd base
 
     // Build the field with dynamic runners
     let field_art = format!(
@@ -277,7 +277,7 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("⚾ Diamond ⚾")
+        .title("Diamond")
         .title_alignment(Alignment::Center)
         .border_style(Style::default().fg(Color::Green));
 
@@ -292,8 +292,8 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
 fn render_strike_zone(frame: &mut Frame, area: Rect, state: &GameState, input_state: &crate::input::InputState) {
     // Determine what to show based on pitch state
     let (title, content_style) = match &state.pitch_state {
-        PitchState::Aiming { .. } => ("🎯 Pitcher Aim", Style::default().fg(Color::Yellow)),
-        PitchState::WaitingForBatter => ("🏏 Batter Aim", Style::default().fg(Color::Red)),
+        PitchState::Aiming { .. } => ("[P] Pitcher Aim", Style::default().fg(Color::Yellow)),
+        PitchState::WaitingForBatter => ("[B] Batter Aim", Style::default().fg(Color::Red)),
         _ => ("Strike Zone", Style::default().fg(Color::Gray)),
     };
 
@@ -337,12 +337,12 @@ fn render_strike_zone(frame: &mut Frame, area: Rect, state: &GameState, input_st
             let symbol = if row == aim_row && col == aim_col {
                 // Show crosshair at aim position
                 match &state.pitch_state {
-                    PitchState::Aiming { .. } => "⊕",  // Pitcher crosshair
-                    PitchState::WaitingForBatter => "⊗",  // Batter crosshair
-                    _ => "·",
+                    PitchState::Aiming { .. } => "+",  // Pitcher crosshair
+                    PitchState::WaitingForBatter => "X",  // Batter crosshair
+                    _ => ".",
                 }
             } else {
-                "·"  // Empty zone
+                "."  // Empty zone
             };
 
             cells.push(Span::styled(

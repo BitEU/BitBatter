@@ -2,8 +2,6 @@
 
 A retro-style baseball game for Windows Console (conhost) written in Rust, inspired by classic NES, Atari, and MS-DOS baseball games like RBI Baseball, Baseball Stars, and HardBall! Stats are from https://baseballsavant.mlb.com/leaderboard/statcast?type=pitcher&year=2025&position=&team=&min=q&sort=barrels_per_pa&sortDir=desc
 
-**NEW in v0.1.1:** Professional ASCII field rendering! (User feedback implemented)
-
 ## Features
 
 - **Classic Gameplay**: NES-style directional pitching and batting
@@ -127,25 +125,8 @@ baseball-tui/
 - [ ] Save/load games
 - [ ] More detailed fielding mechanics
 - [ ] Pitch animations
-- [ ] Sound effects
 - [ ] Statistics tracking
 - [ ] Two-player mode
-
-## Troubleshooting
-
-### UI appears mangled or flickering
-- Make sure you're running on a modern terminal (Windows Terminal recommended)
-- Update Windows if using older conhost
-- Try running with `--release` flag for better performance
-
-### Characters don't display correctly
-- Ensure your terminal font supports Unicode box drawing characters
-- Try a different font (Cascadia Code, Consolas recommended)
-
-### Game runs too slow
-- Build with `--release` flag
-- Close other applications
-- Try reducing terminal window size
 
 ## Credits
 
