@@ -93,6 +93,8 @@ pub struct Team {
     pub batters: Vec<Player>,
     pub pitchers: Vec<Player>,
     pub current_pitcher_idx: usize,
+    pub pitcher_stamina: f32,  // 0.0 to 100.0, starts at 100
+    pub pitches_thrown: u32,    // Track total pitches thrown
 }
 
 impl Team {
@@ -103,6 +105,8 @@ impl Team {
             batters: Vec::new(),
             pitchers: Vec::new(),
             current_pitcher_idx: 0,
+            pitcher_stamina: 100.0,
+            pitches_thrown: 0,
         }
     }
 
@@ -116,6 +120,35 @@ impl Team {
 
     pub fn batting_order_size(&self) -> usize {
         self.batters.len().min(9) // Standard 9-player batting order
+    }
+
+    pub fn decrease_stamina(&mut self, amount: f32) {
+        self.pitcher_stamina = (self.pitcher_stamina - amount).max(0.0);
+        self.pitches_thrown += 1;
+    }
+
+    pub fn get_fatigue_penalty(&self) -> f32 {
+        // Returns a multiplier between 0.5 (very tired) and 1.0 (fresh)
+        // Fatigue kicks in more severely below 50 stamina
+        if self.pitcher_stamina >= 70.0 {
+            1.0
+        } else if self.pitcher_stamina >= 50.0 {
+            0.95
+        } else if self.pitcher_stamina >= 30.0 {
+            0.85
+        } else if self.pitcher_stamina >= 15.0 {
+            0.70
+        } else {
+            0.50
+        }
+    }
+
+    pub fn change_pitcher(&mut self) {
+        if !self.pitchers.is_empty() {
+            self.current_pitcher_idx = (self.current_pitcher_idx + 1) % self.pitchers.len();
+            self.pitcher_stamina = 100.0;
+            self.pitches_thrown = 0;
+        }
     }
 }
 
@@ -253,5 +286,9 @@ impl TeamManager {
 
     pub fn get_team(&self, abbr: &str) -> Option<&Team> {
         self.teams.get(abbr)
+    }
+
+    pub fn get_team_mut(&mut self, abbr: &str) -> Option<&mut Team> {
+        self.teams.get_mut(abbr)
     }
 }

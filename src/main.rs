@@ -249,8 +249,20 @@ fn update_game_state(state: &mut GameState, engine: &GameEngine, input_state: &m
                 let batter = state.get_current_batter();
                 let pitcher = state.get_current_pitcher();
                 
+                // Get fatigue penalty from current pitching team
+                let fatigue_penalty = state.get_current_pitching_team()
+                    .map(|t| t.get_fatigue_penalty())
+                    .unwrap_or(1.0);
+                
                 // For now, use pitch type 0 (could track the actual type)
-                let result = engine.calculate_pitch_result(pitch_loc, swing_loc, 0, batter, pitcher);
+                let result = engine.calculate_pitch_result(pitch_loc, swing_loc, 0, batter, pitcher, fatigue_penalty);
+                
+                // Decrease pitcher stamina after pitch (more for swings)
+                if let Some(team) = state.get_current_pitching_team_mut() {
+                    // Decrease stamina: more for swings (1.5), less for takes (0.8)
+                    let stamina_cost = if swing_loc.is_some() { 1.5 } else { 0.8 };
+                    team.decrease_stamina(stamina_cost);
+                }
                 
                 // Play sound based on result
                 if let Some(player) = audio_player {

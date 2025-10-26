@@ -48,6 +48,7 @@ impl GameEngine {
         _pitch_type_idx: usize,
         batter: Option<&Player>,
         pitcher: Option<&Player>,
+        fatigue_penalty: f32,  // Multiplier from 0.5 to 1.0
     ) -> PlayResult {
         let mut rng = rand::thread_rng();
 
@@ -80,7 +81,8 @@ impl GameEngine {
             // Adjust based on pitcher's ability to limit hard contact
             if let Some(pitcher) = pitcher {
                 // Better pitchers (lower barrel % allowed) reduce contact quality
-                let pitcher_penalty = (pitcher.stats.barrel_percent * 1.5) as i32;
+                // Fatigue reduces pitcher effectiveness significantly
+                let pitcher_penalty = (pitcher.stats.barrel_percent * 1.5 * fatigue_penalty) as i32;
                 contact_quality = (contact_quality - pitcher_penalty).max(1);
             }
 

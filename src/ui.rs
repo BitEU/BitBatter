@@ -16,7 +16,7 @@ pub fn render_game(frame: &mut Frame, game_state: &GameState, engine: &crate::ga
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(7),  // Scoreboard
+                    Constraint::Length(8),  // Scoreboard (increased from 7 to 8)
                     Constraint::Min(12),    // Field
                     Constraint::Length(5),  // Controls/Message
                 ])
@@ -150,8 +150,12 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
         format!("Batter #{} - {}", state.current_batter_idx + 1, state.batting_team())
     };
 
-    let _pitcher_info = if let Some(pitcher) = state.get_current_pitcher() {
-        format!("Pitcher: {}", pitcher.stats.name)
+    let pitcher_info = if let Some(pitcher) = state.get_current_pitcher() {
+        let pitching_team = state.get_current_pitching_team();
+        let stamina = pitching_team.map(|t| t.pitcher_stamina).unwrap_or(100.0);
+        let pitches = pitching_team.map(|t| t.pitches_thrown).unwrap_or(0);
+        format!("Pitcher: {} | Stamina: {:.0}% | Pitches: {}", 
+                pitcher.stats.name, stamina, pitches)
     } else {
         "Pitcher: Unknown".to_string()
     };
@@ -183,11 +187,15 @@ fn render_scoreboard(frame: &mut Frame, area: Rect, state: &GameState) {
             batter_info,
             Style::default().fg(Color::Green),
         )),
+        Line::from(Span::styled(
+            pitcher_info,
+            Style::default().fg(Color::LightBlue),
+        )),
     ];
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("* Baseball Game *")
+        .title("Baseball Game")
         .title_alignment(Alignment::Center);
 
     let paragraph = Paragraph::new(scoreboard)

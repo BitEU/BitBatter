@@ -170,6 +170,14 @@ impl GameState {
         }
     }
 
+    pub fn get_current_pitching_team_mut(&mut self) -> Option<&mut Team> {
+        let team_abbr = match self.half {
+            InningHalf::Top => self.home_team.as_ref()?,
+            InningHalf::Bottom => self.away_team.as_ref()?,
+        };
+        self.team_manager.get_team_mut(team_abbr)
+    }
+
     pub fn get_current_batter(&self) -> Option<&crate::team::Player> {
         self.get_current_batting_team()?.get_batter(self.current_batter_idx)
     }
@@ -226,6 +234,10 @@ impl GameState {
         }
         self.outs = 0;
         self.bases = [false, false, false];
+        
+        // Don't reset pitcher stamina - it carries across innings
+        // Coach may need to change pitcher if fatigue is too high
+        
         self.advance_batter();
     }
 
