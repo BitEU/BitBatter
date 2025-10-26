@@ -249,6 +249,24 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
         r3, r1   // Line 19: duplicated for dugout view
     );
 
+    // Calculate vertical centering
+    let field_lines = 20; // Number of lines in the field art
+    let available_height = area.height.saturating_sub(2) as usize; // Subtract 2 for borders
+    let padding = if available_height > field_lines {
+        (available_height - field_lines) / 2
+    } else {
+        0
+    };
+
+    // Add vertical padding for centering
+    let centered_field = if padding > 0 {
+        let mut lines = vec![String::new(); padding];
+        lines.extend(field_art.lines().map(|s| s.to_string()));
+        lines.join("\n")
+    } else {
+        field_art
+    };
+
     // Color based on game state
     let style = match state.pitch_state {
         PitchState::Pitching { .. } => Style::default().fg(Color::Yellow),
@@ -263,8 +281,9 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
         .title_alignment(Alignment::Center)
         .border_style(Style::default().fg(Color::Green));
 
-    let paragraph = Paragraph::new(field_art)
+    let paragraph = Paragraph::new(centered_field)
         .block(block)
+        .alignment(Alignment::Center)
         .style(style);
 
     frame.render_widget(paragraph, area);
