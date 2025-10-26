@@ -1,4 +1,5 @@
 use crate::team::{Team, TeamManager};
+use super::constants::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InningHalf {
@@ -162,12 +163,13 @@ pub struct GameState {
     pub message: String,
     pub game_over: bool,
     pub fielding_cursor: Option<FieldDirection>, // Active fielder position
+    pub quit_requested: bool, // Quit confirmation state
 }
 
 impl GameState {
     pub fn new() -> Self {
         let mut team_manager = TeamManager::new();
-        let _ = team_manager.load_teams(); // Load teams at startup
+        let _ = team_manager.load_teams(); // Load teams at startup (now a no-op)
         
         Self {
             mode: GameMode::TeamSelection { 
@@ -186,7 +188,7 @@ impl GameState {
             strikes: 0,
             home_score: 0,
             away_score: 0,
-            bases: [false, false, false],
+            bases: [false; BASES_COUNT],
             current_batter_idx: 0,
             pitch_state: PitchState::ChoosePitch,
             pitch_location: None,
@@ -194,6 +196,7 @@ impl GameState {
             message: "Select teams to start playing!".to_string(),
             game_over: false,
             fielding_cursor: None,
+            quit_requested: false,
         }
     }
 
@@ -260,7 +263,7 @@ impl GameState {
 
     pub fn add_out(&mut self) {
         self.outs += 1;
-        if self.outs >= 3 {
+        if self.outs >= MAX_OUTS {
             self.end_half_inning();
         } else {
             self.advance_batter();
@@ -273,7 +276,7 @@ impl GameState {
                 self.half = InningHalf::Bottom;
             }
             InningHalf::Bottom => {
-                if self.inning >= 9 && self.home_score != self.away_score {
+                if self.inning >= INNINGS_PER_GAME && self.home_score != self.away_score {
                     self.game_over = true;
                     self.message = format!(
                         "Game Over! Final Score - Home: {} Away: {}",
@@ -286,7 +289,7 @@ impl GameState {
             }
         }
         self.outs = 0;
-        self.bases = [false, false, false];
+        self.bases = [false; BASES_COUNT];
         
         // Don't reset pitcher stamina - it carries across innings
         // Coach may need to change pitcher if fatigue is too high

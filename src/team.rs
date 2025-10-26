@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PlayerStats {
@@ -105,7 +106,7 @@ impl Team {
             batters: Vec::new(),
             pitchers: Vec::new(),
             current_pitcher_idx: 0,
-            pitcher_stamina: 100.0,
+            pitcher_stamina: crate::game::constants::STARTING_STAMINA,
             pitches_thrown: 0,
         }
     }
@@ -123,9 +124,9 @@ impl Team {
 
     pub fn batting_order_size(&self) -> usize {
         if self.batters.is_empty() {
-            return 9; // Default to 9 even if no batters loaded
+            return crate::game::constants::BATTING_ORDER_SIZE;
         }
-        self.batters.len().min(9) // Standard 9-player batting order
+        self.batters.len().min(crate::game::constants::BATTING_ORDER_SIZE)
     }
 
     pub fn decrease_stamina(&mut self, amount: f32) {
@@ -134,25 +135,26 @@ impl Team {
     }
 
     pub fn get_fatigue_penalty(&self) -> f32 {
+        use crate::game::constants::*;
         // Returns a multiplier between 0.5 (very tired) and 1.0 (fresh)
         // Fatigue kicks in more severely below 50 stamina
-        if self.pitcher_stamina >= 70.0 {
-            1.0
-        } else if self.pitcher_stamina >= 50.0 {
-            0.95
-        } else if self.pitcher_stamina >= 30.0 {
-            0.85
-        } else if self.pitcher_stamina >= 15.0 {
-            0.70
+        if self.pitcher_stamina >= STAMINA_FRESH_THRESHOLD {
+            FATIGUE_PENALTY_FRESH
+        } else if self.pitcher_stamina >= STAMINA_GOOD_THRESHOLD {
+            FATIGUE_PENALTY_GOOD
+        } else if self.pitcher_stamina >= STAMINA_TIRED_THRESHOLD {
+            FATIGUE_PENALTY_TIRED
+        } else if self.pitcher_stamina >= STAMINA_EXHAUSTED_THRESHOLD {
+            FATIGUE_PENALTY_VERY_TIRED
         } else {
-            0.50
+            FATIGUE_PENALTY_EXHAUSTED
         }
     }
 
     pub fn change_pitcher(&mut self) {
         if !self.pitchers.is_empty() {
             self.current_pitcher_idx = (self.current_pitcher_idx + 1) % self.pitchers.len();
-            self.pitcher_stamina = 100.0;
+            self.pitcher_stamina = crate::game::constants::STARTING_STAMINA;
             self.pitches_thrown = 0;
         }
     }
@@ -170,13 +172,55 @@ impl TeamManager {
         }
     }
 
-    pub fn load_teams(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let team_abbreviations = [
+    /// Get list of all available team abbreviations without loading them
+    pub fn get_team_list(&self) -> Vec<String> {
+        vec![
             "ARI", "ATL", "BAL", "BOS", "CHC", "CIN", "CLE", "COL", "CWS", "DET",
             "HOU", "KC", "LAA", "LAD", "MIA", "MIL", "MIN", "NYM", "NYY", "OAK",
             "PHI", "PIT", "SD", "SDG", "SEA", "SF", "STL", "TB", "TEX", "THW", "TOR", "WSH"
-        ];
+        ].iter().map(|s| s.to_string()).collect()
+    }
 
+    /// Load a specific team's data from CSV files
+    pub fn load_team(&mut self, abbr: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Check if already loaded
+        if self.teams.contains_key(abbr) {
+            return Ok(());
+        }
+
+        let team_name = self.get_team_full_name(abbr);
+        let mut team = Team::new(team_name, abbr.to_string());
+
+        // Load batters
+        let batter_path = PathBuf::from("data_down")
+            .join("statcast_downloads")
+            .join(format!("batter_{}_2025.csv", abbr));
+        
+        match Self::load_players_from_csv(&batter_path, false) {
+            Ok(batters) => team.batters = batters,
+            Err(e) => return Err(format!("Failed to load batters for {}: {}", abbr, e).into()),
+        }
+
+        // Load pitchers  
+        let pitcher_path = PathBuf::from("data_down")
+            .join("statcast_downloads")
+            .join(format!("pitcher_{}_2025.csv", abbr));
+        
+        match Self::load_players_from_csv(&pitcher_path, true) {
+            Ok(pitchers) => team.pitchers = pitchers,
+            Err(e) => return Err(format!("Failed to load pitchers for {}: {}", abbr, e).into()),
+        }
+
+        // Only add teams that have players
+        if team.batters.is_empty() && team.pitchers.is_empty() {
+            return Err(format!("No player data found for team {}", abbr).into());
+        }
+
+        self.teams.insert(abbr.to_string(), team);
+        Ok(())
+    }
+
+    pub fn get_team_full_name(&self, abbr: &str) -> String {
         let team_names = [
             ("ARI", "Arizona Diamondbacks"),
             ("ATL", "Atlanta Braves"),
@@ -212,34 +256,19 @@ impl TeamManager {
             ("WSH", "Washington Nationals"),
         ];
 
-        let name_map: HashMap<&str, &str> = team_names.iter().cloned().collect();
+        team_names.iter()
+            .find(|(a, _)| *a == abbr)
+            .map(|(_, name)| name.to_string())
+            .unwrap_or_else(|| abbr.to_string())
+    }
 
-        for &abbr in &team_abbreviations {
-            let team_name = name_map.get(abbr).unwrap_or(&abbr).to_string();
-            let mut team = Team::new(team_name, abbr.to_string());
-
-            // Load batters
-            let batter_path = format!("data_down\\statcast_downloads\\batter_{}_2025.csv", abbr);
-            if let Ok(batters) = Self::load_players_from_csv(&batter_path, false) {
-                team.batters = batters;
-            }
-
-            // Load pitchers  
-            let pitcher_path = format!("data_down\\statcast_downloads\\pitcher_{}_2025.csv", abbr);
-            if let Ok(pitchers) = Self::load_players_from_csv(&pitcher_path, true) {
-                team.pitchers = pitchers;
-            }
-
-            // Only add teams that have players
-            if !team.batters.is_empty() || !team.pitchers.is_empty() {
-                self.teams.insert(abbr.to_string(), team);
-            }
-        }
-
+    /// Deprecated - teams are now loaded on demand
+    pub fn load_teams(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // This is now a no-op - teams load on demand
         Ok(())
     }
 
-    fn load_players_from_csv(path: &str, is_pitcher: bool) -> Result<Vec<Player>, Box<dyn std::error::Error>> {
+    fn load_players_from_csv(path: &PathBuf, is_pitcher: bool) -> Result<Vec<Player>, Box<dyn std::error::Error>> {
         let mut rdr = csv::Reader::from_path(path)?;
         let mut players = Vec::new();
 
@@ -247,7 +276,7 @@ impl TeamManager {
             let stats: PlayerStats = result?;
             
             // Only include players with reasonable number of attempts
-            if stats.attempts >= 50 {
+            if stats.attempts >= crate::game::constants::MIN_PLAYER_ATTEMPTS {
                 let position = if is_pitcher {
                     Position::Pitcher
                 } else {
@@ -282,12 +311,6 @@ impl TeamManager {
         }
 
         Ok(players)
-    }
-
-    pub fn get_team_list(&self) -> Vec<String> {
-        let mut teams: Vec<String> = self.teams.keys().cloned().collect();
-        teams.sort();
-        teams
     }
 
     pub fn get_team(&self, abbr: &str) -> Option<&Team> {

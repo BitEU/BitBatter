@@ -17,111 +17,97 @@ pub enum GameInput {
     DirectPosition(u8), // Numpad 1-9 for direct strike zone selection
 }
 
-pub fn poll_input() -> Result<Option<GameInput>, std::io::Error> {
-    // Non-blocking poll with 16ms timeout (~60fps)
-    if event::poll(Duration::from_millis(16))? {
-        if let Event::Key(key_event) = event::read()? {
-            // Only process key press events (not release)
-            if key_event.kind == crossterm::event::KeyEventKind::Press {
-                return Ok(parse_key_input(key_event));
-            }
-        }
-    }
-    Ok(None)
+/// Input mode state for team selection
+#[derive(Debug, Clone, PartialEq)]
+pub enum TeamSelectionInputMode {
+    None,
+    AwaitingAwayNumber,
+    AwaitingHomeNumber,
 }
 
-fn parse_key_input(key_event: KeyEvent) -> Option<GameInput> {
-    match key_event.code {
-        KeyCode::Up => Some(GameInput::Up),
-        KeyCode::Down => Some(GameInput::Down),
-        KeyCode::Left => Some(GameInput::Left),
-        KeyCode::Right => Some(GameInput::Right),
-        KeyCode::Char(' ') | KeyCode::Enter => Some(GameInput::Action),
-        KeyCode::Char('q') | KeyCode::Char('Q') => Some(GameInput::Quit),
-        KeyCode::Esc => Some(GameInput::Pause),
-        
-        // Regular number keys (1-4) for pitch selection
-        KeyCode::Char(c) if c >= '1' && c <= '4' && !key_event.modifiers.contains(KeyModifiers::SHIFT) => {
-            let num = c.to_digit(10).unwrap() as usize;
-            Some(GameInput::SelectPitch(num - 1))
-        }
-        
-        // SHIFT + number keys (1-9) for direct aiming (simulates numpad)
-        KeyCode::Char(c) if c >= '1' && c <= '9' && key_event.modifiers.contains(KeyModifiers::SHIFT) => {
-            let num = c.to_digit(10).unwrap() as u8;
-            Some(GameInput::DirectPosition(num))
-        }
-        
-        // Handle A + numbers for away team selection
-        KeyCode::Char('a') | KeyCode::Char('A') => None, // Modifier key, wait for number
-        KeyCode::Char('h') | KeyCode::Char('H') => None, // Modifier key, wait for number
-        
-        _ => None,
-    }
+pub struct InputPoller {
+    team_selection_mode: TeamSelectionInputMode,
 }
 
-pub fn poll_input_with_modifiers() -> Result<Option<GameInput>, std::io::Error> {
-    static mut AWAITING_AWAY_NUM: bool = false;
-    static mut AWAITING_HOME_NUM: bool = false;
-    
-    if event::poll(Duration::from_millis(16))? {
-        if let Event::Key(key_event) = event::read()? {
-            if key_event.kind == crossterm::event::KeyEventKind::Press {
-                unsafe {
-                    // Check if we're waiting for a number after A or H
-                    if AWAITING_AWAY_NUM {
-                        if let KeyCode::Char(c) = key_event.code {
-                            if c.is_ascii_digit() {
-                                return Ok(Some(GameInput::NumberInput(c)));
-                            } else if c == '\r' || c == '\n' {
-                                AWAITING_AWAY_NUM = false;
-                                return Ok(Some(GameInput::Action));
-                            }
-                        } else if key_event.code == KeyCode::Enter {
-                            AWAITING_AWAY_NUM = false;
-                            return Ok(Some(GameInput::Action));
-                        } else if key_event.code == KeyCode::Esc {
-                            AWAITING_AWAY_NUM = false;
-                            return Ok(None);
-                        }
-                        return Ok(None);
-                    }
-                    
-                    if AWAITING_HOME_NUM {
-                        if let KeyCode::Char(c) = key_event.code {
-                            if c.is_ascii_digit() {
-                                return Ok(Some(GameInput::NumberInput(c)));
-                            } else if c == '\r' || c == '\n' {
-                                AWAITING_HOME_NUM = false;
-                                return Ok(Some(GameInput::Action));
-                            }
-                        } else if key_event.code == KeyCode::Enter {
-                            AWAITING_HOME_NUM = false;
-                            return Ok(Some(GameInput::Action));
-                        } else if key_event.code == KeyCode::Esc {
-                            AWAITING_HOME_NUM = false;
-                            return Ok(None);
-                        }
-                        return Ok(None);
-                    }
-                    
-                    // Check for A or H key press
-                    match key_event.code {
-                        KeyCode::Char('a') | KeyCode::Char('A') => {
-                            AWAITING_AWAY_NUM = true;
-                            return Ok(Some(GameInput::SelectAwayTeam));
-                        }
-                        KeyCode::Char('h') | KeyCode::Char('H') => {
-                            AWAITING_HOME_NUM = true;
-                            return Ok(Some(GameInput::SelectHomeTeam));
-                        }
-                        _ => return Ok(parse_key_input(key_event)),
-                    }
+impl InputPoller {
+    pub fn new() -> Self {
+        Self {
+            team_selection_mode: TeamSelectionInputMode::None,
+        }
+    }
+
+    pub fn poll_input(&mut self, poll_timeout_ms: u64) -> Result<Option<GameInput>, std::io::Error> {
+        if event::poll(Duration::from_millis(poll_timeout_ms))? {
+            if let Event::Key(key_event) = event::read()? {
+                if key_event.kind == crossterm::event::KeyEventKind::Press {
+                    return Ok(self.parse_key_input(key_event));
                 }
             }
         }
+        Ok(None)
     }
-    Ok(None)
+
+    fn parse_key_input(&mut self, key_event: KeyEvent) -> Option<GameInput> {
+        // Check if we're waiting for a number after A or H
+        match &self.team_selection_mode {
+            TeamSelectionInputMode::AwaitingAwayNumber | TeamSelectionInputMode::AwaitingHomeNumber => {
+                if let KeyCode::Char(c) = key_event.code {
+                    if c.is_ascii_digit() {
+                        return Some(GameInput::NumberInput(c));
+                    } else if c == '\r' || c == '\n' {
+                        self.team_selection_mode = TeamSelectionInputMode::None;
+                        return Some(GameInput::Action);
+                    }
+                } else if key_event.code == KeyCode::Enter {
+                    self.team_selection_mode = TeamSelectionInputMode::None;
+                    return Some(GameInput::Action);
+                } else if key_event.code == KeyCode::Esc {
+                    self.team_selection_mode = TeamSelectionInputMode::None;
+                    return None;
+                }
+                return None;
+            }
+            TeamSelectionInputMode::None => {
+                // Normal input processing
+            }
+        }
+
+        match key_event.code {
+            KeyCode::Up => Some(GameInput::Up),
+            KeyCode::Down => Some(GameInput::Down),
+            KeyCode::Left => Some(GameInput::Left),
+            KeyCode::Right => Some(GameInput::Right),
+            KeyCode::Char(' ') | KeyCode::Enter => Some(GameInput::Action),
+            KeyCode::Char('q') | KeyCode::Char('Q') => Some(GameInput::Quit),
+            KeyCode::Esc => Some(GameInput::Pause),
+            
+            // Regular number keys (1-4) for pitch selection
+            KeyCode::Char(c) if c >= '1' && c <= '4' && !key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+                let num = c.to_digit(10).unwrap() as usize;
+                Some(GameInput::SelectPitch(num - 1))
+            }
+            
+            // SHIFT + number keys (1-9) for direct aiming (simulates numpad)
+            KeyCode::Char(c) if c >= '1' && c <= '9' && key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+                let num = c.to_digit(10).unwrap() as u8;
+                Some(GameInput::DirectPosition(num))
+            }
+            
+            // Handle A for away team selection
+            KeyCode::Char('a') | KeyCode::Char('A') => {
+                self.team_selection_mode = TeamSelectionInputMode::AwaitingAwayNumber;
+                Some(GameInput::SelectAwayTeam)
+            }
+            
+            // Handle H for home team selection
+            KeyCode::Char('h') | KeyCode::Char('H') => {
+                self.team_selection_mode = TeamSelectionInputMode::AwaitingHomeNumber;
+                Some(GameInput::SelectHomeTeam)
+            }
+            
+            _ => None,
+        }
+    }
 }
 
 pub struct InputState {
@@ -158,3 +144,4 @@ impl InputState {
         self.right = false;
     }
 }
+

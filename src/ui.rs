@@ -60,13 +60,13 @@ fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_hom
         .iter()
         .enumerate()
         .map(|(idx, team_abbr)| {
-            let team = game_state.team_manager.get_team(team_abbr).unwrap();
+            let team_name = game_state.team_manager.get_team_full_name(team_abbr);
             let style = if selected_away.as_ref() == Some(team_abbr) {
                 Style::default().fg(Color::Black).bg(Color::Yellow)
             } else {
                 Style::default().fg(Color::White)
             };
-            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team.name)).style(style)
+            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team_name)).style(style)
         })
         .collect();
 
@@ -82,13 +82,13 @@ fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_hom
         .iter()
         .enumerate()
         .map(|(idx, team_abbr)| {
-            let team = game_state.team_manager.get_team(team_abbr).unwrap();
+            let team_name = game_state.team_manager.get_team_full_name(team_abbr);
             let style = if selected_home.as_ref() == Some(team_abbr) {
                 Style::default().fg(Color::Black).bg(Color::Green)
             } else {
                 Style::default().fg(Color::White)
             };
-            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team.name)).style(style)
+            ListItem::new(format!("{}: {} - {}", idx + 1, team_abbr, team_name)).style(style)
         })
         .collect();
 

@@ -1,4 +1,4 @@
-use crate::game::state::{BallInPlay, BallType, FieldDirection, HitType, OutType, PitchLocation, PlayResult};
+use crate::game::{constants::*, state::{BallInPlay, BallType, FieldDirection, HitType, OutType, PitchLocation, PlayResult}};
 use crate::team::Player;
 use rand::Rng;
 
@@ -75,7 +75,7 @@ impl GameEngine {
             // Adjust contact quality based on batter's skills
             if let Some(batter) = batter {
                 // Better batters (higher barrel %) get bonus to contact quality
-                let skill_bonus = (batter.stats.barrel_percent * 1.5) as i32;
+                let skill_bonus = (batter.stats.barrel_percent * BATTER_SKILL_BONUS_MULTIPLIER) as i32;
                 contact_quality = (contact_quality + skill_bonus).min(100);
             }
 
@@ -83,7 +83,7 @@ impl GameEngine {
             if let Some(pitcher) = pitcher {
                 // Better pitchers (lower barrel % allowed) reduce contact quality
                 // Fatigue reduces pitcher effectiveness significantly
-                let pitcher_penalty = (pitcher.stats.barrel_percent * 2.0 * fatigue_penalty) as i32;
+                let pitcher_penalty = (pitcher.stats.barrel_percent * PITCHER_SKILL_PENALTY_MULTIPLIER * fatigue_penalty) as i32;
                 contact_quality = (contact_quality - pitcher_penalty).max(1);
             }
 
@@ -178,13 +178,13 @@ impl GameEngine {
             
             // Adjust based on batter skill
             if let Some(batter) = batter {
-                let skill_bonus = (batter.stats.barrel_percent * 1.0) as i32;
+                let skill_bonus = (batter.stats.barrel_percent * ADJACENT_BATTER_SKILL_MULTIPLIER) as i32;
                 contact_quality = (contact_quality + skill_bonus).min(100);
             }
             
             // Adjust based on pitcher ability
             if let Some(pitcher) = pitcher {
-                let pitcher_penalty = (pitcher.stats.barrel_percent * 1.0 * fatigue_penalty) as i32;
+                let pitcher_penalty = (pitcher.stats.barrel_percent * ADJACENT_PITCHER_SKILL_MULTIPLIER * fatigue_penalty) as i32;
                 contact_quality = (contact_quality - pitcher_penalty).max(1);
             }
 
@@ -271,19 +271,19 @@ impl GameEngine {
         
         // Determine ball type based on contact quality
         let (ball_type, speed, hang_time) = match contact_quality {
-            85..=100 => {
+            CONTACT_EXCELLENT_MIN..=100 => {
                 // Excellent contact - likely fly ball or line drive
                 if rng.gen_bool(0.6) {
-                    (BallType::FlyBall, rng.gen_range(80.0..100.0), rng.gen_range(60..90))
+                    (BallType::FlyBall, rng.gen_range(SPEED_EXCELLENT_MIN..SPEED_EXCELLENT_MAX), rng.gen_range(HANG_TIME_FLYBALL_MIN..HANG_TIME_FLYBALL_MAX))
                 } else {
-                    (BallType::LineDrive, rng.gen_range(90.0..110.0), rng.gen_range(20..40))
+                    (BallType::LineDrive, rng.gen_range(90.0..110.0), rng.gen_range(HANG_TIME_LINEDRIVE_MIN..HANG_TIME_LINEDRIVE_MAX))
                 }
             }
             60..=84 => {
                 // Good contact - mix of outcomes
                 let roll = rng.gen_range(1..=10);
                 match roll {
-                    1..=3 => (BallType::FlyBall, rng.gen_range(70.0..90.0), rng.gen_range(50..70)),
+                    1..=3 => (BallType::FlyBall, rng.gen_range(SPEED_GOOD_MIN..SPEED_GOOD_MAX), rng.gen_range(50..70)),
                     4..=6 => (BallType::LineDrive, rng.gen_range(80.0..100.0), rng.gen_range(25..45)),
                     _ => (BallType::Grounder, rng.gen_range(60.0..90.0), 0),
                 }
@@ -293,7 +293,7 @@ impl GameEngine {
                 if rng.gen_bool(0.7) {
                     (BallType::Grounder, rng.gen_range(50.0..75.0), 0)
                 } else {
-                    (BallType::PopFly, rng.gen_range(40.0..60.0), rng.gen_range(40..60))
+                    (BallType::PopFly, rng.gen_range(SPEED_WEAK_MIN..SPEED_WEAK_MAX), rng.gen_range(HANG_TIME_POPFLY_MIN..HANG_TIME_POPFLY_MAX))
                 }
             }
             _ => {
@@ -371,21 +371,21 @@ impl GameEngine {
         
         // Calculate timing accuracy (closer to perfect = higher accuracy)
         let timing_diff = (catch_timing as i32 - perfect_timing as i32).abs() as f32;
-        // Much more forgiving timing window - within 15 frames is good
-        let timing_accuracy = 1.0 - (timing_diff / 15.0).min(1.0);
+        // Much more forgiving timing window
+        let timing_accuracy = 1.0 - (timing_diff / FIELDING_TIMING_WINDOW).min(1.0);
 
         // Base catch success rate - fielders catch MOST balls
         // Since we only field hits now, success = preventing the hit (catching it for an out)
         let base_success = match ball.ball_type {
-            BallType::PopFly => 0.98,     // Almost always caught
-            BallType::FlyBall => 0.90,    // Usually caught
-            BallType::LineDrive => 0.75,  // Harder but still mostly caught
-            BallType::Grounder => 0.85,   // Most are fielded
+            BallType::PopFly => FIELDING_SUCCESS_POPFLY,
+            BallType::FlyBall => FIELDING_SUCCESS_FLYBALL,
+            BallType::LineDrive => FIELDING_SUCCESS_LINEDRIVE,
+            BallType::Grounder => FIELDING_SUCCESS_GROUNDER,
         };
 
         // Speed only slightly affects difficulty for very fast balls
-        let speed_penalty = if ball.speed > 95.0 {
-            (ball.speed - 95.0) / 300.0  // Minimal penalty
+        let speed_penalty = if ball.speed > FIELDING_SPEED_THRESHOLD {
+            (ball.speed - FIELDING_SPEED_THRESHOLD) / FIELDING_SPEED_PENALTY_DIVISOR
         } else {
             0.0
         };
@@ -393,11 +393,11 @@ impl GameEngine {
         // Calculate final success chance
         // Good timing (>0.6) gives nearly full success rate
         // Bad timing still gives decent chance
-        let success_chance = if timing_accuracy > 0.6 {
-            (base_success - speed_penalty).max(0.1)
+        let success_chance = if timing_accuracy > FIELDING_TIMING_GOOD_THRESHOLD {
+            (base_success - speed_penalty).max(FIELDING_MIN_SUCCESS_RATE)
         } else {
             // Poor timing - reduced but still possible
-            ((base_success - speed_penalty) * (0.5 + timing_accuracy * 0.5)).max(0.1)
+            ((base_success - speed_penalty) * (FIELDING_TIMING_POOR_MULTIPLIER + timing_accuracy * FIELDING_TIMING_POOR_MULTIPLIER)).max(FIELDING_MIN_SUCCESS_RATE)
         };
 
         // Determine outcome
@@ -424,9 +424,9 @@ impl GameEngine {
         
         // Use original contact quality to determine hit
         match ball.initial_contact_quality {
-            85..=100 => {
+            CONTACT_EXCELLENT_MIN..=100 => {
                 // Great contact that got through
-                if ball.speed > 95.0 {
+                if ball.speed > FIELDING_SPEED_THRESHOLD {
                     if rng.gen_bool(0.4) {
                         PlayResult::Hit(HitType::HomeRun)
                     } else {
