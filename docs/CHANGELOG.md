@@ -2,6 +2,53 @@
 
 All notable changes to Baseball TUI will be documented in this file.
 
+## [0.2.0] - 2025-10-26
+
+### Added - MAJOR FEATURE: Interactive Fielding Gameplay! 🎮⚾
+
+**Revolutionary fielding mechanics replace automatic outs!**
+
+- **Real-Time Fielding**: Players now field balls in real-time instead of automatic outcomes
+- **Ball Physics**: Realistic ball trajectories based on contact quality
+  - Grounders: Fast-moving ground balls to infielders
+  - Line Drives: Hard-hit balls with medium hang time
+  - Fly Balls: High arcing balls to outfielders
+  - Pop Flies: Easy high flies with long hang time
+- **Timing-Based Catching**: Press SPACE at the right moment to field/catch
+  - Perfect timing = successful out
+  - Poor timing = ball gets through for a hit
+- **Field Directions**: Balls hit to 9 different field positions
+  - Infield: 1B, 2B, 3B, SS
+  - Outfield: LF, LC, CF, RC, RF
+- **Dynamic Difficulty**: Ball speed and type affect catch difficulty
+  - Faster balls = harder to field
+  - Line drives harder than pop flies
+  - Contact quality influences ball characteristics
+- **Audio Feedback**: Appropriate sounds for catches, grounders, and hits
+- **Visual Indicators**: Real-time display of ball type, direction, and time remaining
+
+### Changed
+- Ball-in-play results now trigger interactive fielding minigame
+- Game state expanded to support fielding cursor and ball tracking
+- Enhanced UI to show fielding information and countdown timer
+- Improved play result processing to handle fielding outcomes
+
+### Technical
+- New `BallInPlay` struct tracks ball physics (type, direction, speed, hang time)
+- New `BallType` enum (Grounder, LineDrive, FlyBall, PopFly)
+- New `FieldDirection` enum for 9 field positions
+- New `PitchState::Fielding` game state for fielding mode
+- Enhanced `GameEngine` with ball trajectory generation
+- Timing-based outcome calculation in `calculate_fielding_result()`
+- Player stats influence ball physics and fielding difficulty
+
+### Game Balance
+- Contact quality determines ball type probability
+- Better contact = harder/faster balls
+- Weaker contact = easier grounders and pop flies
+- Auto-resolve if player doesn't react in time (ball gets through)
+- Optimal timing window varies by ball type
+
 ## [0.1.1] - 2025-10-25
 
 ### Changed
@@ -93,8 +140,6 @@ All notable changes to Baseball TUI will be documented in this file.
 
 ### Known Issues
 - No fielding mechanics yet (automatic outs on batted balls)
-- No player stats system (coming in 0.2.0)
-- No team selection (default teams)
 - No save/load games
 - No season mode
 - No two-player mode
@@ -114,7 +159,6 @@ All notable changes to Baseball TUI will be documented in this file.
 - [ ] Custom team creation
 - [ ] Statistics tracking
 - [ ] More detailed fielding
-- [ ] Pitcher fatigue system
 - [ ] Pinch hitters
 - [ ] Defensive substitutions
 
@@ -127,14 +171,7 @@ All notable changes to Baseball TUI will be documented in this file.
 - [ ] Player progression
 - [ ] Injuries
 
-### 0.4.0 - Enhanced Graphics
-- [ ] Better animations
-- [ ] More detailed field
-- [ ] Player sprites
-- [ ] Color themes
-- [ ] Unicode art improvements
-
-### 0.5.0 - Multiplayer
+### 0.4.0 - Multiplayer
 - [ ] Two-player mode (same keyboard)
 - [ ] Network play (stretch goal)
 

@@ -14,7 +14,38 @@ pub enum PitchState {
     WaitingForBatter,
     Swinging { frames_left: u8 },
     BallInPlay { frames_left: u8 },
+    Fielding { ball_in_play: BallInPlay, frames_elapsed: u8 },
     ShowResult { result: PlayResult, frames_left: u8 },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BallType {
+    Grounder,      // Ground ball
+    LineDrive,     // Line drive
+    FlyBall,       // Fly ball
+    PopFly,        // Pop fly (easy catch)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BallInPlay {
+    pub ball_type: BallType,
+    pub direction: FieldDirection,  // Where the ball is hit
+    pub speed: f32,                 // Ball speed (affects catch difficulty)
+    pub hang_time: u8,              // Frames until ball lands (for fly balls)
+    pub initial_contact_quality: i32, // Original contact quality
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FieldDirection {
+    LeftField,
+    LeftCenter,
+    CenterField,
+    RightCenter,
+    RightField,
+    ThirdBase,
+    Shortstop,
+    SecondBase,
+    FirstBase,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -115,6 +146,7 @@ pub struct GameState {
     pub swing_location: Option<PitchLocation>,
     pub message: String,
     pub game_over: bool,
+    pub fielding_cursor: Option<FieldDirection>, // Active fielder position
 }
 
 impl GameState {
@@ -146,6 +178,7 @@ impl GameState {
             swing_location: None,
             message: "Select teams to start playing!".to_string(),
             game_over: false,
+            fielding_cursor: None,
         }
     }
 
@@ -197,7 +230,12 @@ impl GameState {
         let batting_order_size = self.get_current_batting_team()
             .map(|t| t.batting_order_size())
             .unwrap_or(9);
-        self.current_batter_idx = (self.current_batter_idx + 1) % batting_order_size;
+        
+        // Ensure we don't divide by zero
+        if batting_order_size > 0 {
+            self.current_batter_idx = (self.current_batter_idx + 1) % batting_order_size;
+        }
+        
         self.balls = 0;
         self.strikes = 0;
         self.pitch_state = PitchState::ChoosePitch;

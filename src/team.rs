@@ -115,10 +115,16 @@ impl Team {
     }
 
     pub fn get_batter(&self, idx: usize) -> Option<&Player> {
+        if self.batters.is_empty() {
+            return None;
+        }
         self.batters.get(idx % self.batters.len())
     }
 
     pub fn batting_order_size(&self) -> usize {
+        if self.batters.is_empty() {
+            return 9; // Default to 9 even if no batters loaded
+        }
         self.batters.len().min(9) // Standard 9-player batting order
     }
 

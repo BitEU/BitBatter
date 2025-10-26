@@ -29,7 +29,7 @@ pub fn render_game(frame: &mut Frame, game_state: &GameState, engine: &crate::ga
     }
 }
 
-fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_home: &Option<String>, selected_away: &Option<String>, input_buffer: &str, input_mode: &crate::game::TeamInputMode) {
+fn render_team_selection(frame: &mut Frame, game_state: &GameState, selected_home: &Option<String>, selected_away: &Option<String>, input_buffer: &str, _input_mode: &crate::game::TeamInputMode) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -279,7 +279,7 @@ fn render_baseball_field(frame: &mut Frame, area: Rect, state: &GameState) {
     let style = match state.pitch_state {
         PitchState::Pitching { .. } => Style::default().fg(Color::Yellow),
         PitchState::Swinging { .. } => Style::default().fg(Color::Red),
-        PitchState::BallInPlay { .. } => Style::default().fg(Color::Green),
+        PitchState::BallInPlay { .. } | PitchState::Fielding { .. } => Style::default().fg(Color::Green),
         _ => Style::default().fg(Color::Cyan),
     };
 
@@ -414,6 +414,13 @@ fn render_controls(frame: &mut Frame, area: Rect, state: &GameState, engine: &cr
         PitchState::Pitching { .. } => "Pitching...".to_string(),
         PitchState::Swinging { .. } => "Swinging...".to_string(),
         PitchState::BallInPlay { .. } => "Ball in play!".to_string(),
+        PitchState::Fielding { ball_in_play, frames_elapsed } => {
+            let time_left = ball_in_play.hang_time.saturating_sub(*frames_elapsed);
+            format!(
+                "FIELDING: {:?} to {:?}! Time: {} frames - Press SPACE to field!  |  Q: quit",
+                ball_in_play.ball_type, ball_in_play.direction, time_left
+            )
+        }
         PitchState::ShowResult { .. } => "Press SPACE to continue  |  Q: quit".to_string(),
     };
 
