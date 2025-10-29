@@ -106,16 +106,9 @@ This game was specifically designed to avoid UI flickering on Windows conhost by
 
 ### Architecture
 ```
-baseball-tui/
+BitBatter/
 ├── src/
-│   ├── main.rs          # Entry point and game loop
-│   ├── game/
-│   │   ├── mod.rs       # Game module exports
-│   │   ├── state.rs     # Game state management
-│   │   └── engine.rs    # Game logic and physics
-│   ├── input.rs         # Input handling
-│   └── ui.rs            # Terminal UI rendering
-└── Cargo.toml           # Dependencies
+│   ├── main.rs          # Entry point
 ```
 
 ### Dependencies
@@ -127,10 +120,12 @@ baseball-tui/
 ## Future Enhancements
 
 - [ ] Save/load games
-- [ ] More detailed fielding mechanics
-- [ ] Pitch animations
-- [ ] Statistics tracking
-- [ ] Two-player mode
+- [ ] Standings and records
+- [ ] Injuries
+- [ ] Network play (stretch goal)
+- [ ] Comprehensive unit testing
+- [ ] Performance optimization
+- [ ] Complete documentation
 
 ## Keyboard Layout
 
