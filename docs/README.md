@@ -37,7 +37,7 @@ cargo run --release
 
 Or run the compiled binary directly:
 ```bash
-./target/release/baseball-tui
+./target/release/BitBatter
 ```
 
 ## Controls
