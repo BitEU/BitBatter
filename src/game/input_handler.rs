@@ -1,5 +1,5 @@
 use crate::audio::AudioPlayer;
-use crate::game::{constants::*, GameEngine, GameState, OutType, PitchLocation, PitchState, PlayResult, TeamInputMode};
+use crate::game::{constants::*, GameEngine, GameState, OutType, PitchLocation, PitchState, PlayResult, TeamInputMode, SwingTiming};
 use crate::input::{GameInput, InputState};
 use crate::logger::GameLogger;
 
@@ -30,21 +30,24 @@ pub fn handle_input(
                 }
             }
         }
-        PitchState::Aiming { pitch_type: _ } => {
+        PitchState::Aiming { pitch_type } => {
             match input {
                 GameInput::Up | GameInput::Down | GameInput::Left | GameInput::Right => {
                     input_state.update(&input);
                 }
                 GameInput::DirectPosition(num) => {
-                    // Direct numpad selection - immediately lock in position
+                    // Direct numpad selection - immediately lock in position and start pitch clock
                     let location = PitchLocation::from_numpad(num);
                     state.pitch_location = Some(location);
-                    state.pitch_state = PitchState::Pitching { frames_left: PITCHING_ANIMATION_FRAMES };
-                    state.message = "Pitch released!".to_string();
+                    state.pitch_state = PitchState::PitchClock { 
+                        frames_left: PITCH_CLOCK_FRAMES, 
+                        pitch_type: *pitch_type 
+                    };
+                    state.message = "Get ready! Pitch clock started...".to_string();
                     input_state.reset();
                 }
                 GameInput::Action => {
-                    // Lock in pitch location
+                    // Lock in pitch location and start pitch clock
                     let location = PitchLocation::from_direction(
                         input_state.up,
                         input_state.down,
@@ -52,38 +55,66 @@ pub fn handle_input(
                         input_state.right,
                     );
                     state.pitch_location = Some(location);
-                    state.pitch_state = PitchState::Pitching { frames_left: PITCHING_ANIMATION_FRAMES };
-                    state.message = "Pitch released!".to_string();
+                    state.pitch_state = PitchState::PitchClock { 
+                        frames_left: PITCH_CLOCK_FRAMES, 
+                        pitch_type: *pitch_type 
+                    };
+                    state.message = "Get ready! Pitch clock started...".to_string();
                     input_state.reset();
                 }
                 _ => {}
             }
         }
-        PitchState::WaitingForBatter => {
+        PitchState::BallApproaching { .. } => {
             match input {
                 GameInput::Up | GameInput::Down | GameInput::Left | GameInput::Right => {
                     input_state.update(&input);
                 }
                 GameInput::DirectPosition(num) => {
-                    // Direct numpad selection - immediately swing
+                    // Direct numpad selection - attempt swing with timing
                     let swing_loc = PitchLocation::from_numpad(num);
+                    let timing = calculate_swing_timing(state);
                     state.swing_location = Some(swing_loc);
-                    state.pitch_state = PitchState::Swinging { frames_left: SWINGING_ANIMATION_FRAMES };
-                    state.message = "Swing!".to_string();
+                    state.swing_timing = timing;
+                    state.pitch_state = PitchState::Swinging { 
+                        frames_left: SWINGING_ANIMATION_FRAMES, 
+                        swing_timing: timing
+                    };
+                    state.message = format!("Swing! ({})", format_timing(&timing));
                     input_state.reset();
                 }
                 GameInput::Action => {
-                    // Batter swings
+                    // Batter swings with current aim
                     let swing_loc = PitchLocation::from_direction(
                         input_state.up,
                         input_state.down,
                         input_state.left,
                         input_state.right,
                     );
+                    let timing = calculate_swing_timing(state);
                     state.swing_location = Some(swing_loc);
-                    state.pitch_state = PitchState::Swinging { frames_left: SWINGING_ANIMATION_FRAMES };
-                    state.message = "Swing!".to_string();
+                    state.swing_timing = timing;
+                    state.pitch_state = PitchState::Swinging { 
+                        frames_left: SWINGING_ANIMATION_FRAMES, 
+                        swing_timing: timing
+                    };
+                    state.message = format!("Swing! ({})", format_timing(&timing));
                     input_state.reset();
+                }
+                _ => {}
+            }
+        }
+        PitchState::WaitingForBatter => {
+            // Legacy state - shouldn't happen with new timing system
+            match input {
+                GameInput::Action => {
+                    // Continue to next pitch
+                    input_state.reset();
+                    state.pitch_state = PitchState::ChoosePitch;
+                    state.pitch_location = None;
+                    state.swing_location = None;
+                    state.swing_timing = SwingTiming::NoSwing;
+                    state.message = "Choose your pitch!".to_string();
                 }
                 _ => {}
             }
@@ -229,5 +260,44 @@ fn handle_team_selection_input(state: &mut GameState, input: GameInput) {
             }
             _ => {}
         }
+    }
+}
+
+fn calculate_swing_timing(state: &GameState) -> SwingTiming {
+    if let PitchState::BallApproaching { frames_left, can_swing, .. } = &state.pitch_state {
+        if !can_swing {
+            return SwingTiming::TooEarly;
+        }
+        
+        // Calculate timing based on remaining frames
+        // Perfect timing is when ball is very close to plate
+        let perfect_start = PERFECT_TIMING_WINDOW_FRAMES / 2;
+        let perfect_end = perfect_start + PERFECT_TIMING_WINDOW_FRAMES;
+        
+        let early_start = perfect_start + PERFECT_TIMING_WINDOW_FRAMES;
+        let early_end = early_start + EARLY_LATE_WINDOW_FRAMES;
+        
+        let _late_start = 0;
+        let late_end = perfect_start;
+        
+        match *frames_left {
+            f if f <= late_end => SwingTiming::Late,
+            f if f <= perfect_end => SwingTiming::Perfect,
+            f if f <= early_end => SwingTiming::Early,
+            _ => SwingTiming::TooEarly,
+        }
+    } else {
+        SwingTiming::NoSwing
+    }
+}
+
+fn format_timing(timing: &SwingTiming) -> &'static str {
+    match timing {
+        SwingTiming::TooEarly => "Too Early!",
+        SwingTiming::Early => "Early",
+        SwingTiming::Perfect => "Perfect!",
+        SwingTiming::Late => "Late", 
+        SwingTiming::TooLate => "Too Late!",
+        SwingTiming::NoSwing => "No Swing",
     }
 }

@@ -1,4 +1,4 @@
-use crate::game::{GameMode, GameState, InningHalf, PitchState};
+use crate::game::{GameMode, GameState, InningHalf, PitchState, SwingTiming};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -17,14 +17,16 @@ pub fn render_game(frame: &mut Frame, game_state: &GameState, engine: &crate::ga
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(8),  // Scoreboard (increased from 7 to 8)
-                    Constraint::Min(12),    // Field
+                    Constraint::Length(4),  // Timing display
+                    Constraint::Min(8),     // Field (reduced to make room for timing)
                     Constraint::Length(5),  // Controls/Message
                 ])
                 .split(frame.area());
 
             render_scoreboard(frame, chunks[0], game_state);
-            render_field(frame, chunks[1], game_state, input_state);
-            render_controls(frame, chunks[2], game_state, engine);
+            render_timing_display(frame, chunks[1], game_state);
+            render_field(frame, chunks[2], game_state, input_state);
+            render_controls(frame, chunks[3], game_state, engine);
         }
     }
 }
@@ -408,6 +410,16 @@ fn render_controls(frame: &mut Frame, area: Rect, state: &GameState, engine: &cr
                 engine.get_pitch_name(*pitch_type)
             )
         }
+        PitchState::PitchClock { .. } => {
+            "GET READY! Position yourself for the incoming pitch...  |  Q: quit".to_string()
+        }
+        PitchState::BallApproaching { can_swing, .. } => {
+            if *can_swing {
+                "⚡ SWING NOW! Use arrow keys + SPACE or SHIFT+(1-9) to swing!  |  Q: quit".to_string()
+            } else {
+                "⏳ Ball approaching... Get ready to swing!  |  Q: quit".to_string()
+            }
+        }
         PitchState::WaitingForBatter => {
             "BATTER: Use arrow keys to position, SPACE to swing  |  Q: quit".to_string()
         }
@@ -443,4 +455,115 @@ fn render_controls(frame: &mut Frame, area: Rect, state: &GameState, engine: &cr
         .wrap(Wrap { trim: true });
 
     frame.render_widget(paragraph, area);
+}
+
+fn render_timing_display(frame: &mut Frame, area: Rect, state: &GameState) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Timing");
+
+    match &state.pitch_state {
+        PitchState::PitchClock { frames_left, .. } => {
+            let seconds_left = (*frames_left as f32 / 30.0).ceil() as u16;
+            let clock_text = format!("PITCH CLOCK: {}s", seconds_left);
+            
+            // Create countdown bar
+            let progress = 1.0 - (*frames_left as f32 / crate::game::constants::PITCH_CLOCK_FRAMES as f32);
+            let bar_width = (area.width.saturating_sub(4)) as f32 * progress;
+            let filled_chars = (bar_width as usize).min(area.width.saturating_sub(4) as usize);
+            let empty_chars = (area.width.saturating_sub(4) as usize).saturating_sub(filled_chars);
+            
+            let clock_bar = format!("[{}{}]", 
+                "=".repeat(filled_chars),
+                "-".repeat(empty_chars)
+            );
+            
+            let text = vec![
+                Line::from(Span::styled(
+                    clock_text,
+                    Style::default().fg(if seconds_left <= 3 { Color::Red } else { Color::Yellow })
+                        .add_modifier(Modifier::BOLD)
+                )),
+                Line::from(clock_bar),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(block).alignment(Alignment::Center);
+            frame.render_widget(paragraph, area);
+        }
+        PitchState::BallApproaching { frames_left, ball_position, can_swing, .. } => {
+            // Ball approach visualization
+            let ball_width = area.width.saturating_sub(4) as f32;
+            let ball_pos = (*ball_position * ball_width) as usize;
+            
+            // Create ball position display
+            let mut ball_display = vec![' '; ball_width as usize];
+            if ball_pos < ball_display.len() {
+                ball_display[ball_pos] = 'O';
+            }
+            
+            // Timing window indicator
+            let _timing_window_start = crate::game::constants::SWING_TIMING_WINDOW_FRAMES;
+            let perfect_window = crate::game::constants::PERFECT_TIMING_WINDOW_FRAMES;
+            
+            let timing_info = if *can_swing {
+                if *frames_left <= perfect_window {
+                    "⚡ PERFECT TIMING! ⚡"
+                } else {
+                    "🎯 Swing Zone Active"
+                }
+            } else {
+                "⏳ Ball Approaching..."
+            };
+            
+            let ball_track = ball_display.iter().collect::<String>();
+            
+            let text = vec![
+                Line::from(Span::styled(
+                    timing_info,
+                    Style::default().fg(if *can_swing { Color::Green } else { Color::Cyan })
+                        .add_modifier(Modifier::BOLD)
+                )),
+                Line::from(format!("Mound [{}] Plate", ball_track)),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(block).alignment(Alignment::Center);
+            frame.render_widget(paragraph, area);
+        }
+        PitchState::Swinging { swing_timing, .. } => {
+            let timing_text = match swing_timing {
+                SwingTiming::TooEarly => "❌ TOO EARLY!",
+                SwingTiming::Early => "⚠️  EARLY",
+                SwingTiming::Perfect => "⚡ PERFECT! ⚡",
+                SwingTiming::Late => "⚠️  LATE",
+                SwingTiming::TooLate => "❌ TOO LATE!",
+                SwingTiming::NoSwing => "👀 NO SWING",
+            };
+            
+            let color = match swing_timing {
+                SwingTiming::Perfect => Color::Green,
+                SwingTiming::Early | SwingTiming::Late => Color::Yellow,
+                SwingTiming::TooEarly | SwingTiming::TooLate => Color::Red,
+                SwingTiming::NoSwing => Color::Blue,
+            };
+            
+            let text = vec![
+                Line::from(Span::styled(
+                    timing_text,
+                    Style::default().fg(color).add_modifier(Modifier::BOLD)
+                )),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(block).alignment(Alignment::Center);
+            frame.render_widget(paragraph, area);
+        }
+        _ => {
+            // Default display for other states
+            let text = vec![
+                Line::from("Ready to pitch..."),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(block).alignment(Alignment::Center);
+            frame.render_widget(paragraph, area);
+        }
+    }
 }

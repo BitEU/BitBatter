@@ -1,4 +1,4 @@
-use crate::game::{constants::*, state::{BallInPlay, BallType, FieldDirection, HitType, OutType, PitchLocation, PlayResult}};
+use crate::game::{constants::*, state::{BallInPlay, BallType, FieldDirection, HitType, OutType, PitchLocation, PlayResult, SwingTiming}};
 use crate::team::Player;
 use rand::Rng;
 
@@ -451,4 +451,203 @@ impl GameEngine {
             _ => PlayResult::Hit(HitType::Single),
         }
     }
-}
+
+    pub fn calculate_pitch_result_with_timing(
+        &self,
+        pitch_location: PitchLocation,
+        swing_location: Option<PitchLocation>,
+        _pitch_type_idx: usize,
+        batter: Option<&Player>,
+        pitcher: Option<&Player>,
+        fatigue_penalty: f32,
+        swing_timing: &SwingTiming,
+    ) -> (PlayResult, Option<i32>) {
+        let mut rng = rand::thread_rng();
+
+        // No swing
+        if swing_location.is_none() {
+            return if pitch_location.is_strike() {
+                (PlayResult::Strike, None)
+            } else {
+                (PlayResult::Ball, None)
+            };
+        }
+
+        let swing_loc = swing_location.unwrap();
+        
+        // Calculate basic timing and location accuracy
+        let exact_match = std::mem::discriminant(&pitch_location) == std::mem::discriminant(&swing_loc);
+        let adjacent_match = !exact_match && self.locations_match(pitch_location, swing_loc);
+        let is_strike_zone = pitch_location.is_strike();
+
+        // Apply timing penalties/bonuses to contact quality
+        let timing_multiplier = match swing_timing {
+            SwingTiming::TooEarly => 0.1,   // Almost impossible to make contact
+            SwingTiming::Early => 0.6,      // Reduced contact quality
+            SwingTiming::Perfect => 1.3,    // Bonus to contact quality
+            SwingTiming::Late => 0.6,       // Reduced contact quality  
+            SwingTiming::TooLate => 0.1,    // Almost impossible to make contact
+            SwingTiming::NoSwing => return if is_strike_zone { (PlayResult::Strike, None) } else { (PlayResult::Ball, None) },
+        };
+
+        // Very early/late swings have high chance of complete miss
+        if matches!(swing_timing, SwingTiming::TooEarly | SwingTiming::TooLate) {
+            return if rng.gen_bool(0.9) {
+                (PlayResult::Strike, Some(5)) // Almost always swing and miss
+            } else {
+                (PlayResult::Foul, Some(10))  // Rare weak contact
+            };
+        }
+
+        // Perfect contact with good timing
+        if exact_match && is_strike_zone {
+            let mut contact_quality = rng.gen_range(1..=100);
+            
+            // Apply timing bonus/penalty
+            contact_quality = ((contact_quality as f32 * timing_multiplier) as i32).clamp(1, 100);
+            
+            // Apply player skills
+            if let Some(batter) = batter {
+                let skill_bonus = (batter.stats.barrel_percent * BATTER_SKILL_BONUS_MULTIPLIER) as i32;
+                contact_quality = (contact_quality + skill_bonus).min(100);
+            }
+
+            if let Some(pitcher) = pitcher {
+                let pitcher_penalty = (pitcher.stats.barrel_percent * PITCHER_SKILL_PENALTY_MULTIPLIER * fatigue_penalty) as i32;
+                contact_quality = (contact_quality - pitcher_penalty).max(1);
+            }
+
+            // Same outcome logic as before, but with timing-adjusted contact quality
+            let result = match contact_quality {
+                90..=100 => {
+                    let hr_chance = if let Some(batter) = batter {
+                        (batter.stats.max_distance as f32 / 500.0 * 100.0) as u32
+                    } else { 25 };
+                    
+                    if rng.gen_range(1..=100) <= hr_chance.min(25) {
+                        PlayResult::Hit(HitType::HomeRun)
+                    } else if rng.gen_bool(0.6) {
+                        PlayResult::Hit(HitType::Triple)
+                    } else {
+                        PlayResult::Hit(HitType::Double)
+                    }
+                }
+                75..=89 => {
+                    let roll = rng.gen_range(1..=10);
+                    match roll {
+                        1 => PlayResult::Hit(HitType::Triple),
+                        2..=4 => PlayResult::Hit(HitType::Double),
+                        5..=7 => PlayResult::Hit(HitType::Single),
+                        _ => {
+                            if rng.gen_bool(0.6) {
+                                PlayResult::Out(OutType::Flyout)
+                            } else {
+                                PlayResult::Out(OutType::LineOut)
+                            }
+                        }
+                    }
+                }
+                55..=74 => {
+                    let roll = rng.gen_range(1..=10);
+                    match roll {
+                        1..=3 => PlayResult::Hit(HitType::Single),
+                        4 => PlayResult::Hit(HitType::Double),
+                        5..=6 => PlayResult::Foul,
+                        _ => {
+                            let gb_tendency = batter.map(|b| b.stats.gb).unwrap_or(50.0);
+                            if rng.gen_range(0.0..100.0) < gb_tendency {
+                                PlayResult::Out(OutType::Groundout)
+                            } else {
+                                PlayResult::Out(OutType::Flyout)
+                            }
+                        }
+                    }
+                }
+                35..=54 => {
+                    let roll = rng.gen_range(1..=10);
+                    match roll {
+                        1..=2 => PlayResult::Foul,
+                        3 => PlayResult::Hit(HitType::Single),
+                        _ => {
+                            let gb_tendency = batter.map(|b| b.stats.gb).unwrap_or(50.0);
+                            if rng.gen_range(0.0..100.0) < gb_tendency {
+                                PlayResult::Out(OutType::Groundout)
+                            } else {
+                                PlayResult::Out(OutType::Flyout)
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if rng.gen_bool(0.2) {
+                        PlayResult::Foul
+                    } else {
+                        let gb_tendency = batter.map(|b| b.stats.gb).unwrap_or(50.0);
+                        if rng.gen_range(0.0..100.0) < gb_tendency {
+                            PlayResult::Out(OutType::Groundout)
+                        } else {
+                            PlayResult::Out(OutType::Flyout)
+                        }
+                    }
+                }
+            };
+            return (result, Some(contact_quality));
+        }
+
+        // Good contact - adjacent match in strike zone (with timing adjustment)
+        if adjacent_match && is_strike_zone {
+            let mut contact_quality = rng.gen_range(1..=100);
+            contact_quality = ((contact_quality as f32 * timing_multiplier) as i32).clamp(1, 100);
+            
+            if let Some(batter) = batter {
+                let skill_bonus = (batter.stats.barrel_percent * ADJACENT_BATTER_SKILL_MULTIPLIER) as i32;
+                contact_quality = (contact_quality + skill_bonus).min(100);
+            }
+            
+            if let Some(pitcher) = pitcher {
+                let pitcher_penalty = (pitcher.stats.barrel_percent * ADJACENT_PITCHER_SKILL_MULTIPLIER * fatigue_penalty) as i32;
+                contact_quality = (contact_quality - pitcher_penalty).max(1);
+            }
+
+            let result = match contact_quality {
+                75..=100 => PlayResult::Hit(HitType::Single),
+                50..=74 => {
+                    if rng.gen_bool(0.5) {
+                        PlayResult::Hit(HitType::Single)
+                    } else {
+                        PlayResult::Foul
+                    }
+                }
+                30..=49 => PlayResult::Foul,
+                _ => {
+                    let gb_tendency = batter.map(|b| b.stats.gb).unwrap_or(50.0);
+                    if rng.gen_range(0.0..100.0) < gb_tendency {
+                        PlayResult::Out(OutType::Groundout)
+                    } else {
+                        PlayResult::Out(OutType::Flyout)
+                    }
+                }
+            };
+            return (result, Some(contact_quality));
+        }
+
+        // Poor location or timing - increased chance of swing and miss
+        let miss_chance = if is_strike_zone {
+            match swing_timing {
+                SwingTiming::Early | SwingTiming::Late => 0.8, // High miss chance on poor timing
+                SwingTiming::Perfect => 0.6,                   // Still can miss on bad location
+                _ => 0.9,
+            }
+        } else {
+            0.9 // Very high miss chance outside zone
+        };
+
+        if rng.gen_bool(miss_chance) {
+            (PlayResult::Strike, Some(5)) // Swing and miss
+        } else {
+            (PlayResult::Foul, Some(15))  // Weak contact
+        }
+    }
+
+    // Keep original method for backward compatibility
+    }

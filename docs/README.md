@@ -4,12 +4,15 @@ A retro-style baseball game for Windows Console (conhost) written in Rust, inspi
 
 ## Features
 
-- **Classic Gameplay**: NES-style directional pitching and batting
+- **Realistic Timing System**: 3-second pitch clock + ball approach animation with precise swing timing
+- **Interactive Fielding**: Real-time ball physics with timing-based catching mechanics
+- **Classic Gameplay**: NES-style directional pitching and batting with modern timing elements
 - **Professional Field**: High-quality ASCII baseball diamond with realistic perspective
 - **No Flicker**: Uses Ratatui's double-buffering for smooth rendering on Windows conhost
-- **Simple Controls**: Arrow keys for aiming, Space to pitch/swing
+- **Smart Controls**: Arrow keys for aiming, Space to pitch/swing, timing-based mechanics
 - **Full 9-Inning Games**: Complete baseball simulation with scoring, baserunning, and outs
 - **Visual Detail**: Outfield fence, infield dirt, pitcher's mound, 9 fielder positions
+- **Audio Feedback**: Contextual sounds for hits, misses, catches, and crowd reactions
 
 ## Requirements
 
@@ -46,9 +49,15 @@ Or run the compiled binary directly:
 - **Space/Enter**: Release pitch
 
 ### Batting Phase
-- **Arrow Keys**: Position swing location
+- **Pitch Clock**: 10-second countdown to prepare for pitch
+- **Ball Approach**: Watch ball travel from mound to plate
+- **Timing Window**: Swing when ball enters the timing zone
+  - **Perfect Timing**: ⚡ 0.2-second window for maximum contact
+  - **Good Timing**: Early/Late zones for decent contact
+  - **Poor Timing**: Too early/late = weak contact or swing-and-miss
+- **Arrow Keys**: Position swing location during ball approach
 - **SHIFT + (1-9)**: Direct aim swing to specific zone
-- **Space/Enter**: Swing bat
+- **Space/Enter**: Swing bat (timing matters!)
 - **Don't Press Anything**: Take the pitch (ball/strike)
 
 ### General
@@ -59,6 +68,7 @@ Or run the compiled binary directly:
 
 ## How to Play
 
+### Pitching
 1. **Choose Your Pitch**: Press 1-4 to select pitch type
 2. **Aim**: Use arrow keys to aim at one of 9 locations, or use SHIFT + number (1-9) for direct selection:
    ```
@@ -66,11 +76,28 @@ Or run the compiled binary directly:
    SHIFT+4 (Left)    SHIFT+5 (Middle)    SHIFT+6 (Right)
    SHIFT+1 (DownLeft)  SHIFT+2 (Down)  SHIFT+3 (DownRight)
    ```
-3. **Pitch**: Press Space to throw
-4. **Bat**: As the batter, aim your swing with arrows or SHIFT+numbers and press Space
-5. **Score Runs**: Hits advance runners and score runs
-6. **3 Outs**: Each team gets 3 outs per inning
-7. **9 Innings**: Complete 9 innings to finish the game
+3. **Pitch**: Press Space to start the pitch clock
+
+### Batting
+4. **Get Ready**: 10-second pitch clock countdown begins
+5. **Watch the Ball**: Ball approaches from mound to plate
+6. **Time Your Swing**: 
+   - Position your swing (arrows/SHIFT+numbers) during ball approach
+   - Wait for ball to enter timing window
+   - **Perfect Timing** = green zone for best contact
+   - **Good Timing** = early/late zones still work
+   - **Poor Timing** = swing and miss!
+7. **Swing**: Press Space when timing feels right, or take the pitch
+
+### Fielding
+8. **React Fast**: When ball is hit, watch its trajectory
+9. **Time the Catch**: Press Space at the right moment to field
+10. **Perfect Timing**: Successful out vs. ball gets through for hit
+
+### Scoring 
+11. **Score Runs**: Hits advance runners and score runs
+12. **3 Outs**: Each team gets 3 outs per inning  
+13. **9 Innings**: Complete 9 innings to finish the game
 
 ## Game Mechanics
 
@@ -80,18 +107,45 @@ Or run the compiled binary directly:
 - **Slider**: Medium speed with some movement (82 MPH)
 - **Changeup**: Off-speed pitch (78 MPH)
 
-### Batting
-- **Perfect Contact**: Swing location matches pitch + in strike zone = likely hit
-- **Timing Matters**: Early/late swings result in fouls or weak contact
-- **Power**: Good contact can result in singles, doubles, triples, or home runs
-- **Strike Zone**: Pitches in the corners are harder to hit
+### Batting & Timing
+- **Timing is Everything**: New realistic timing system with multiple windows
+  - **Perfect Timing**: 0.2-second window = 30% contact quality bonus
+  - **Good Timing** (Early/Late): Decent contact but 40% penalty
+  - **Poor Timing** (Too Early/Late): 90% chance of swing-and-miss
+- **Location Matching**: Swing location should match pitch location
+- **Perfect Contact**: Good timing + location match + strike zone = likely hit
+- **Swing-and-Miss**: Now actually happens! Poor timing leads to strikeouts
+- **Power**: Perfect timing + good contact = singles, doubles, triples, home runs
+- **Strike Zone**: Pitches in corners harder to hit, especially with poor timing
+
+### Timing System Details
+The game features a realistic timing system that mimics real baseball:
+
+1. **Pitch Clock Phase** (3 seconds):
+   - Visual countdown with progress bar
+   - Time to get in position and prepare
+   - Clock turns red in final 3 seconds
+
+2. **Ball Approach Phase** (3 seconds):
+   - Ball travels from mound to home plate
+   - Position indicator shows ball location
+   - Timing window opens when ball gets close
+
+3. **Swing Timing Windows**:
+   ```
+   Too Early → Early → PERFECT → Late → Too Late
+   (Miss)     (60%)    (130%)   (60%)   (Miss)
+   ```
+   - Numbers show contact quality multiplier
+   - Perfect timing has best chance for hits
+   - Poor timing leads to swing-and-miss
 
 ### Results
-- **Strike**: Swing and miss, or pitch in strike zone taken
+- **Strike**: Swing and miss (now actually happens!), or pitch in strike zone taken
 - **Ball**: Pitch outside strike zone, no swing
 - **Foul**: Weak contact (counts as strike, but won't strikeout on 2 strikes)
-- **Hit**: Single, Double, Triple, or Home Run
-- **Out**: Groundout, Flyout, Lineout, or Strikeout
+- **Hit**: Single, Double, Triple, or Home Run (timing affects outcome!)
+- **Out**: Groundout, Flyout, Lineout, or Strikeout (timing-based strikeouts now possible)
 
 ## Technical Details
 

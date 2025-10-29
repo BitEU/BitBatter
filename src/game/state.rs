@@ -11,12 +11,29 @@ pub enum InningHalf {
 pub enum PitchState {
     ChoosePitch,
     Aiming { pitch_type: usize },
+    PitchClock { frames_left: u16, pitch_type: usize }, // New: 10-second countdown
     Pitching { frames_left: u8 },
+    BallApproaching { 
+        frames_left: u8, 
+        ball_position: f32,  // 0.0 (mound) to 1.0 (plate)
+        pitch_type: usize,
+        can_swing: bool,     // Timing window for swinging
+    },
     WaitingForBatter,
-    Swinging { frames_left: u8 },
+    Swinging { frames_left: u8, swing_timing: SwingTiming },
     BallInPlay { frames_left: u8 },
     Fielding { ball_in_play: BallInPlay, frames_elapsed: u8 },
     ShowResult { result: PlayResult, frames_left: u8 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SwingTiming {
+    TooEarly,    // Swung before timing window
+    Early,       // Swung in early part of window  
+    Perfect,     // Swung in perfect timing zone
+    Late,        // Swung in late part of window
+    TooLate,     // Swung after timing window
+    NoSwing,     // Didn't swing (take)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -160,6 +177,7 @@ pub struct GameState {
     pub pitch_state: PitchState,
     pub pitch_location: Option<PitchLocation>,
     pub swing_location: Option<PitchLocation>,
+    pub swing_timing: SwingTiming,
     pub message: String,
     pub game_over: bool,
     pub fielding_cursor: Option<FieldDirection>, // Active fielder position
@@ -193,6 +211,7 @@ impl GameState {
             pitch_state: PitchState::ChoosePitch,
             pitch_location: None,
             swing_location: None,
+            swing_timing: SwingTiming::NoSwing,
             message: "Select teams to start playing!".to_string(),
             game_over: false,
             fielding_cursor: None,

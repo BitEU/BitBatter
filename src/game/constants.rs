@@ -8,6 +8,13 @@ pub const SWINGING_ANIMATION_FRAMES: u8 = 10;
 pub const RESULT_DISPLAY_FRAMES: u8 = 90;
 pub const GAME_OVER_DELAY_SECONDS: u64 = 3;
 
+// Timing system constants
+pub const PITCH_CLOCK_FRAMES: u16 = 90; // 10 seconds at 30fps
+pub const BALL_APPROACH_FRAMES: u8 = 90; // 3 seconds for ball to reach plate
+pub const SWING_TIMING_WINDOW_FRAMES: u8 = 30; // 1 second timing window
+pub const PERFECT_TIMING_WINDOW_FRAMES: u8 = 6; // 0.2 second perfect window
+pub const EARLY_LATE_WINDOW_FRAMES: u8 = 12; // 0.4 second early/late windows each side
+
 // Batter auto-take timing
 pub const BATTER_AUTO_TAKE_FRAMES: u8 = 60; // ~2 seconds at 30fps
 

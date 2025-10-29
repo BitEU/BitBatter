@@ -1,5 +1,5 @@
 use crate::audio::AudioPlayer;
-use crate::game::{constants::*, GameEngine, GameState, HitType, InningHalf, OutType, PitchState, PlayResult};
+use crate::game::{constants::*, GameEngine, GameState, HitType, InningHalf, OutType, PitchState, PlayResult, SwingTiming};
 use crate::input::InputState;
 use crate::logger::GameLogger;
 
@@ -13,50 +13,113 @@ pub fn update_game_state(
     inning_hits: &mut u8,
 ) {
     match &mut state.pitch_state {
+        PitchState::PitchClock { frames_left, pitch_type } => {
+            *frames_left -= 1;
+            let seconds_left = (*frames_left as f32 / TARGET_FPS as f32).ceil() as u16;
+            
+            if seconds_left <= 3 {
+                state.message = format!("GET READY! {}...", seconds_left);
+            } else {
+                state.message = format!("Pitch clock: {}s - Get in position!", seconds_left);
+            }
+            
+            if *frames_left == 0 {
+                // Clock expires - start ball approach
+                state.pitch_state = PitchState::BallApproaching {
+                    frames_left: BALL_APPROACH_FRAMES,
+                    ball_position: 0.0,
+                    pitch_type: *pitch_type,
+                    can_swing: false,
+                };
+                state.message = "Here comes the pitch! Watch the ball!".to_string();
+            }
+        }
         PitchState::Pitching { frames_left } => {
             *frames_left -= 1;
             if *frames_left == 0 {
-                // Pitch arrives - switch to batter
-                state.pitch_state = PitchState::WaitingForBatter;
-                state.message = "Batter up! Aim with arrows or SHIFT+(1-9), SPACE to swing, or let it go.".to_string();
+                // Legacy - transition to ball approaching
+                state.pitch_state = PitchState::BallApproaching {
+                    frames_left: BALL_APPROACH_FRAMES,
+                    ball_position: 0.0,
+                    pitch_type: 0, // Default pitch type
+                    can_swing: false,
+                };
+                state.message = "Here comes the pitch!".to_string();
                 input_state.reset();
+            }
+        }
+        PitchState::BallApproaching { frames_left, ball_position, can_swing, .. } => {
+            *frames_left -= 1;
+            
+            // Update ball position (0.0 = mound, 1.0 = plate)
+            *ball_position = 1.0 - (*frames_left as f32 / BALL_APPROACH_FRAMES as f32);
+            
+            // Enable swinging when ball enters timing window
+            let timing_window_start = SWING_TIMING_WINDOW_FRAMES;
+            if *frames_left <= timing_window_start && !*can_swing {
+                *can_swing = true;
+                state.message = "SWING NOW! Time your swing!".to_string();
+            }
+            
+            // Update message with timing cues
+            if *can_swing {
+                if *frames_left <= PERFECT_TIMING_WINDOW_FRAMES {
+                    state.message = "PERFECT TIMING!".to_string();
+                } else if *frames_left <= (PERFECT_TIMING_WINDOW_FRAMES + EARLY_LATE_WINDOW_FRAMES) {
+                    state.message = "Good timing zone...".to_string();
+                }
+            }
+            
+            if *frames_left == 0 {
+                // Ball reaches plate - no swing means take
+                state.swing_timing = SwingTiming::NoSwing;
+                let pitch_loc = state.pitch_location.unwrap();
+                
+                let result = if pitch_loc.is_strike() {
+                    PlayResult::Strike
+                } else {
+                    PlayResult::Ball
+                };
+                
+                state.pitch_state = PitchState::ShowResult {
+                    result,
+                    frames_left: RESULT_DISPLAY_FRAMES,
+                };
+                state.message = "Taken!".to_string();
             }
         }
         PitchState::WaitingForBatter => {
             // Auto-take after configured frames (~2 seconds)
             // This allows batter to choose not to swing
         }
-        PitchState::Swinging { frames_left } => {
+        PitchState::Swinging { frames_left, swing_timing } => {
             *frames_left -= 1;
             if *frames_left == 0 {
-                // Calculate result with player stats
+                // Collect all data needed for calculation
                 let pitch_loc = state.pitch_location.unwrap();
                 let swing_loc = state.swing_location;
-                
-                // Get fatigue penalty from current pitching team
+                let swing_timing_copy = *swing_timing;
                 let fatigue_penalty = state.get_current_pitching_team()
                     .map(|t| t.get_fatigue_penalty())
                     .unwrap_or(FATIGUE_PENALTY_FRESH);
-                
-                // Clone player references to avoid borrow issues
                 let batter = state.get_current_batter().cloned();
                 let pitcher = state.get_current_pitcher().cloned();
                 
-                // Decrease pitcher stamina after pitch (more for swings)
+                // Now modify state - decrease pitcher stamina
                 if let Some(team) = state.get_current_pitching_team_mut() {
-                    // Decrease stamina: more for swings, less for takes
                     let stamina_cost = if swing_loc.is_some() { STAMINA_COST_SWING } else { STAMINA_COST_TAKE };
                     team.decrease_stamina(stamina_cost);
                 }
                 
-                // For now, use pitch type 0 (could track the actual type)
-                let (result, contact_quality) = engine.calculate_pitch_result(
+                // Calculate result with timing consideration
+                let (result, contact_quality) = engine.calculate_pitch_result_with_timing(
                     pitch_loc,
                     swing_loc,
                     0,
                     batter.as_ref(),
                     pitcher.as_ref(),
                     fatigue_penalty,
+                    &swing_timing_copy,
                 );
                 
                 // Log pitch result
@@ -177,6 +240,7 @@ pub fn update_game_state(
                 state.pitch_state = PitchState::ChoosePitch;
                 state.pitch_location = None;
                 state.swing_location = None;
+                state.swing_timing = SwingTiming::NoSwing;
                 state.message = "Choose your pitch!".to_string();
             }
         }

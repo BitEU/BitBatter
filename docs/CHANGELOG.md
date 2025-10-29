@@ -2,6 +2,54 @@
 
 All notable changes to Baseball TUI will be documented in this file.
 
+## [0.2.1] - 2025-10-28
+
+### Added - MAJOR FEATURE: Realistic Batting Timing System!
+
+**Revolutionary timing mechanics replace instant swinging!**
+
+- **3-Second Pitch Clock**: Visual countdown before each pitch for realistic pacing
+- **Ball Approach Animation**: Watch the ball travel from mound to plate with real-time position tracking
+- **Timing Windows**: Multiple swing timing zones with different outcomes
+  - **Perfect Timing**: 0.2-second window for maximum contact quality
+  - **Good Timing**: Early/Late zones provide decent contact
+  - **Poor Timing**: Too early/late results in weak contact or swing-and-miss
+- **Visual Timing Display**: 
+  - Pitch clock countdown with progress bar
+  - Ball position indicator showing travel to home plate
+  - Real-time timing feedback (Perfect!, Early, Late, etc.)
+  - Emoji indicators for timing quality
+- **Swing-and-Miss Mechanics**: Finally implemented realistic strikeouts!
+  - Poor timing = high chance of missing completely
+  - Bad pitch location + poor timing = almost guaranteed miss
+  - Timing affects contact quality multiplier (0.1x to 1.3x)
+- **Enhanced Audio Cues**: Miss sounds now properly trigger on swing-and-miss
+- **Realistic Baseball Pacing**: 10-second between-pitch timer mimics real game flow
+
+### Changed
+- Batting phase completely redesigned around timing mechanics
+- `PitchState` expanded with `PitchClock` and `BallApproaching` states
+- New `SwingTiming` enum tracks timing quality (TooEarly, Early, Perfect, Late, TooLate, NoSwing)
+- `GameEngine` enhanced with timing-aware pitch calculation
+- UI layout reorganized to accommodate timing display
+- Swing-and-miss now actually occurs (was previously missing from game)
+- Contact quality formula now includes timing multipliers
+
+### Technical
+- New timing constants for pitch clock, ball approach, and swing windows
+- Enhanced input handler with timing calculation functions
+- Timing-aware game state updates and animation frames
+- Improved game engine with `calculate_pitch_result_with_timing()` method
+- Visual timing display with progress bars and ball position tracking
+- Proper borrow checker handling for complex game state updates
+
+### Game Balance
+- Timing is now crucial for successful hitting
+- Perfect timing provides 30% contact quality bonus
+- Early/Late timing reduces contact quality to 60%
+- Very poor timing almost guarantees swing-and-miss
+- Realistic strikeout rates now possible through timing mechanics
+
 ## [0.2.0] - 2025-10-26
 
 ### Added - MAJOR FEATURE: Interactive Fielding Gameplay! 🎮⚾
