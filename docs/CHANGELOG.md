@@ -24,7 +24,7 @@ All notable changes to Baseball TUI will be documented in this file.
   - Bad pitch location + poor timing = almost guaranteed miss
   - Timing affects contact quality multiplier (0.1x to 1.3x)
 - **Enhanced Audio Cues**: Miss sounds now properly trigger on swing-and-miss
-- **Realistic Baseball Pacing**: 10-second between-pitch timer mimics real game flow
+- **Realistic Baseball Pacing**: 3-second between-pitch timer mimics real game flow
 
 ### Changed
 - Batting phase completely redesigned around timing mechanics

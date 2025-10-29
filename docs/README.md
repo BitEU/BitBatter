@@ -49,7 +49,7 @@ Or run the compiled binary directly:
 - **Space/Enter**: Release pitch
 
 ### Batting Phase
-- **Pitch Clock**: 10-second countdown to prepare for pitch
+- **Pitch Clock**: 3-second countdown to prepare for pitch
 - **Ball Approach**: Watch ball travel from mound to plate
 - **Timing Window**: Swing when ball enters the timing zone
   - **Perfect Timing**: ⚡ 0.2-second window for maximum contact
@@ -79,7 +79,7 @@ Or run the compiled binary directly:
 3. **Pitch**: Press Space to start the pitch clock
 
 ### Batting
-4. **Get Ready**: 10-second pitch clock countdown begins
+4. **Get Ready**: 3-second pitch clock countdown begins
 5. **Watch the Ball**: Ball approaches from mound to plate
 6. **Time Your Swing**: 
    - Position your swing (arrows/SHIFT+numbers) during ball approach

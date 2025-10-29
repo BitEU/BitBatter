@@ -11,7 +11,7 @@ pub enum InningHalf {
 pub enum PitchState {
     ChoosePitch,
     Aiming { pitch_type: usize },
-    PitchClock { frames_left: u16, pitch_type: usize }, // New: 10-second countdown
+    PitchClock { frames_left: u16, pitch_type: usize }, // New: 3-second countdown
     Pitching { frames_left: u8 },
     BallApproaching { 
         frames_left: u8, 
